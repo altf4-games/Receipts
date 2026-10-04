@@ -22,6 +22,7 @@ const FLAG_APPROX = 1, FLAG_LATE = 2;
 
 const A = wallet("TESTER_CURATOR"); //  live-curator-a
 const B = wallet("TESTER_SUBSCRIBER"); // live-curator-b (second curator)
+const OWNER = wallet("DEPLOYER"); //  registry owner (deployer EOA)
 const KEEPER = wallet("KEEPER"); //  an unrelated third party; also never registered
 
 type Call = {
@@ -106,6 +107,22 @@ async function ensureClean(w: typeof A) {
   }
 }
 
+
+/** Staging must always return to SettlerV1 as the active settler (a crashed A14 run could leave it elsewhere). */
+async function ensureSettlerIsV1() {
+  const cur = (await publicClient.readContract({ address: CR, abi: abis.call, functionName: "settler" })) as Address;
+  if (cur.toLowerCase() === ST.toLowerCase()) return;
+  const pend = (await publicClient.readContract({ address: CR, abi: abis.call, functionName: "pendingSettler" })) as Address;
+  if (pend.toLowerCase() !== ST.toLowerCase()) {
+    const p = await send(OWNER, CR, abis.call, "proposeSettler", [ST]);
+    record("heal.proposeSettlerV1", { tx: p.hash });
+  }
+  const eta = (await publicClient.readContract({ address: CR, abi: abis.call, functionName: "pendingSettlerEta" })) as bigint;
+  await waitUntilTimestamp(eta);
+  const a = await send(KEEPER, CR, abis.call, "activateSettler", []);
+  record("heal.activateSettlerV1", { tx: a.hash });
+}
+
 const S: { btc?: Committed; eth?: Committed; sol?: Committed; solSalt?: Hex; keeperFeeCheck?: unknown } = {};
 
 describe.sequential("STAGING live: Receipts core on Monad testnet", () => {
@@ -115,6 +132,7 @@ describe.sequential("STAGING live: Receipts core on Monad testnet", () => {
       const bal = await publicClient.getBalance({ address: w.account.address });
       expect(bal, `${w.account.address} needs MON`).toBeGreaterThan(2n * 10n ** 17n);
     }
+    await ensureSettlerIsV1();
     await ensureCurator(A, "live-curator-a");
     await ensureCurator(B, "live-curator-b");
     await ensureClean(A);
@@ -269,6 +287,53 @@ describe.sequential("STAGING live: Receipts core on Monad testnet", () => {
     // settling twice must fail
     expect(await simulateRevert(KEEPER, ST, abis.settler, "settle", [c.id])).toBe("NotRevealed");
     expect(call.flags & ~(FLAG_APPROX | FLAG_LATE)).toBe(0);
+  });
+
+
+  test("A14 settler rotation is TIMELOCKED live: propose -> early activate reverts -> old settler still rules -> activate -> old settler powerless -> rotate back", async () => {
+    const delay = BigInt(deployment.settlerDelay);
+    const other = KEEPER.account.address; // any address; staging only
+    const settlerNow = async () => (await publicClient.readContract({ address: CR, abi: abis.call, functionName: "settler" })) as Address;
+    expect(await settlerNow()).toBe(ST);
+
+    // non-owner cannot propose
+    expect(await simulateRevert(KEEPER, CR, abis.call, "proposeSettler", [other])).toMatch(/OwnableUnauthorizedAccount|revert/);
+
+    const p = await send(OWNER, CR, abis.call, "proposeSettler", [other]);
+    expect(p.receipt.status).toBe("success");
+    const eta = (await publicClient.readContract({ address: CR, abi: abis.call, functionName: "pendingSettlerEta" })) as bigint;
+    record("A14.propose", { tx: p.hash, pending: other, eta, delay });
+    expect(eta - (await publicClient.getBlock({ blockNumber: p.receipt.blockNumber })).timestamp).toBe(delay);
+
+    expect(await simulateRevert(KEEPER, CR, abis.call, "activateSettler", [])).toBe("SettlerDelayActive");
+    expect(await settlerNow()).toBe(ST); // nothing moved
+
+    await waitUntilTimestamp(eta);
+    const act = await send(KEEPER, CR, abis.call, "activateSettler", []); // anyone
+    expect(act.receipt.status).toBe("success");
+    expect(await settlerNow()).toBe(other);
+    record("A14.activate", { tx: act.hash, newSettler: other });
+
+    // power moved: a non-settler is refused at the auth gate, while the NEW settler (KEEPER here) passes it
+    // and is only stopped later because the call is already Settled
+    expect(await simulateRevert(OWNER, CR, abis.call, "close", [S.btc!.id, 0, 0])).toBe("NotSettler");
+    expect(await simulateRevert(KEEPER, CR, abis.call, "close", [S.btc!.id, 0, 0])).toBe("WrongStatus");
+
+    // rotate back so the rest of staging keeps working
+    const back = await send(OWNER, CR, abis.call, "proposeSettler", [ST]);
+    const eta2 = (await publicClient.readContract({ address: CR, abi: abis.call, functionName: "pendingSettlerEta" })) as bigint;
+    await waitUntilTimestamp(eta2);
+    const act2 = await send(KEEPER, CR, abis.call, "activateSettler", []);
+    expect(act2.receipt.status).toBe("success");
+    expect(await settlerNow()).toBe(ST);
+    record("A14.rotateBack", { proposeTx: back.hash, activateTx: act2.hash });
+  });
+
+  test("owner transfer is two-step (propose does not move ownership) -- read-only check", async () => {
+    const owner = (await publicClient.readContract({ address: CR, abi: abis.call, functionName: "owner" })) as Address;
+    expect(owner.toLowerCase()).toBe(OWNER.account.address.toLowerCase());
+    // a stranger cannot accept ownership that was never offered
+    expect(await simulateRevert(KEEPER, CR, abis.call, "acceptOwnership", [])).toMatch(/OwnableUnauthorizedAccount|revert/);
   });
 
   test("gas report (Monad charges the gas LIMIT, not gas used)", () => {

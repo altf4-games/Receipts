@@ -39,6 +39,7 @@ export const deployment = JSON.parse(
   minBond: number;
   minHorizon: number;
   maxOracleAge: number;
+  settlerDelay: number;
   deployer: Address;
 };
 
