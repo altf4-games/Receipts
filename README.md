@@ -37,6 +37,10 @@ cp .env.example .env        # fill in your own keys
 cd contracts && forge install foundry-rs/forge-std && forge build
 ```
 
+## Use of AI
+
+AI tools played a helpful role in building Receipts, from researching the Perpl, Chainlink CRE, Nansen, Envio and Aurora integration paths to drafting documentation, assisting with contract structure, creating unit tests, and supporting frontend development.
+
 ## License
 
 MIT, see `LICENSE`.
