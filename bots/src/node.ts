@@ -3,13 +3,24 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Hex } from "viem";
-import { BOTS, type Deployment } from "./config.js";
+import { BOTS, BOT_ADDRESSES, KEEPER_ADDRESS, type Deployment } from "./config.js";
 import { makePublicClient, makeSigner } from "./chain.js";
-import type { BotRuntime, Ctx } from "./tick.js";
+import type { BotRuntime, Ctx, Signer } from "./tick.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(here, "../..");
 config({ path: path.join(repoRoot, ".env") });
+
+function lazySigner(make: () => Signer, expected: string): () => Signer {
+  let v: Signer | undefined;
+  return () => {
+    if (!v) {
+      v = make();
+      if (v.account.address.toLowerCase() !== expected.toLowerCase()) throw new Error(`key does not match the expected address ${expected}`);
+    }
+    return v;
+  };
+}
 
 export function buildNodeCtx(deployName: "production" | "staging", logFile?: string): { ctx: Ctx; bots: BotRuntime[] } {
   const rpc = process.env.MONAD_TESTNET_RPC ?? "https://testnet-rpc.monad.xyz";
@@ -27,7 +38,8 @@ export function buildNodeCtx(deployName: "production" | "staging", logFile?: str
     deployment,
     perplApi: process.env.PERPL_API ?? "https://testnet.perpl.xyz/api",
     masterSecret: master,
-    keeper: makeSigner(rpc, key("KEEPER")),
+    keeperAddress: KEEPER_ADDRESS,
+    getKeeper: lazySigner(() => makeSigner(rpc, key("KEEPER")), KEEPER_ADDRESS),
     nowSec: () => BigInt(Math.floor(Date.now() / 1000)),
     log: (e) => {
       const line = JSON.stringify({ at: new Date().toISOString(), deploy: deployName, ...e }, (_k, v) => (typeof v === "bigint" ? v.toString() : v));
@@ -35,6 +47,6 @@ export function buildNodeCtx(deployName: "production" | "staging", logFile?: str
       if (logFile) fs.appendFileSync(logFile, line + "\n");
     },
   };
-  const bots: BotRuntime[] = BOTS.map((spec) => ({ spec, signer: makeSigner(rpc, key(spec.envPrefix)) }));
+  const bots: BotRuntime[] = BOTS.map((spec) => ({ spec, address: BOT_ADDRESSES[spec.envPrefix], getSigner: lazySigner(() => makeSigner(rpc, key(spec.envPrefix)), BOT_ADDRESSES[spec.envPrefix]) }));
   return { ctx, bots };
 }

@@ -25,7 +25,7 @@ export interface Call {
 }
 
 export interface Signer { account: Account; client: WalletClient<Transport, Chain, Account> }
-export interface BotRuntime { spec: BotSpec; signer: Signer }
+export interface BotRuntime { spec: BotSpec; address: Address; /** lazy: only built when a tx is sent */ getSigner: () => Signer }
 
 export interface Ctx {
   pc: PublicClient;
@@ -33,7 +33,8 @@ export interface Ctx {
   perplApi: string;
   masterSecret: Hex;
   /** pays gas for reveal / settle / expire (all permissionless or recoverable by any wallet) */
-  keeper: Signer;
+  keeperAddress: Address;
+  getKeeper: () => Signer;
   nowSec: () => bigint;
   log: (e: Record<string, unknown>) => void;
   cadence?: Cadence;
@@ -107,11 +108,11 @@ interface OpenItem { bot: BotRuntime; perpId: bigint; id: bigint; c: Call }
 async function actUrgent(ctx: Ctx, it: OpenItem) {
   const d = ctx.deployment;
   const { bot, perpId, id, c } = it;
-  const curator = bot.signer.account.address;
+  const curator = bot.address;
   const tag = { bot: bot.spec.handle, perpId, callId: id };
   const now = ctx.nowSec();
   if (now > c.horizonEnd) {
-    await send(ctx, ctx.keeper, d.callRegistry, CALL, "expire", [id], "expire", tag);
+    await send(ctx, ctx.getKeeper(), d.callRegistry, CALL, "expire", [id], "expire", tag);
     return;
   }
   const rec = recoverParams({
@@ -122,21 +123,21 @@ async function actUrgent(ctx: Ctx, it: OpenItem) {
     ctx.log({ evt: "CRITICAL_unrecoverable_call", ...tag, hash: c.hash, note: "wrong BOT_SECRET or params outside the candidate set; call will expire at -30%" });
     return;
   }
-  await send(ctx, ctx.keeper, d.callRegistry, CALL, "reveal", [id, rec.direction, rec.tpBps, rec.slBps, rec.salt], "reveal", { ...tag, dir: rec.direction, tp: rec.tpBps, sl: rec.slBps });
+  await send(ctx, ctx.getKeeper(), d.callRegistry, CALL, "reveal", [id, rec.direction, rec.tpBps, rec.slBps, rec.salt], "reveal", { ...tag, dir: rec.direction, tp: rec.tpBps, sl: rec.slBps });
 }
 
 async function actSettle(ctx: Ctx, it: OpenItem) {
   const d = ctx.deployment;
   const tag = { bot: it.bot.spec.handle, perpId: it.perpId, callId: it.id };
   const o = await readOracle(ctx.pc, d.exchange, it.perpId);
-  if (o.ts >= it.c.horizonEnd) await send(ctx, ctx.keeper, d.settlerV1, SETTLER, "settle", [it.id], "settle", tag);
+  if (o.ts >= it.c.horizonEnd) await send(ctx, ctx.getKeeper(), d.settlerV1, SETTLER, "settle", [it.id], "settle", tag);
   else ctx.log({ evt: "waiting_for_oracle_sample", ...tag, oracleTs: o.ts, horizonEnd: it.c.horizonEnd });
 }
 
 /** Free slot: commit only inside this pair's window (or when forced by a test). */
 async function actCommit(ctx: Ctx, bot: BotRuntime, perpId: bigint) {
   const d = ctx.deployment;
-  const curator = bot.signer.account.address;
+  const curator = bot.address;
   const now = ctx.nowSec();
   const tag = { bot: bot.spec.handle, perpId, callId: 0n };
   const cad = ctx.cadence ?? DEFAULT_CADENCE;
@@ -155,7 +156,7 @@ async function actCommit(ctx: Ctx, bot: BotRuntime, perpId: bigint) {
   const horizon = jitteredHorizon(ctx.opts?.horizonBaseOverride ?? bot.spec.horizonBase, now, ctx.opts?.jitterMod);
   const salt = deriveSalt(botSecret(ctx.masterSecret, bot.spec.handle), perpId, horizon);
   const hash = callHash({ chainId: d.chainId, registry: d.callRegistry, curator, perpId, direction: decision.direction, tpBps: decision.tpBps, slBps: decision.slBps, horizonSecs: horizon, salt });
-  await send(ctx, bot.signer, d.callRegistry, CALL, "commit", [perpId, hash, horizon], "commit", { ...tag, horizon, strategy: bot.spec.strategy });
+  await send(ctx, bot.getSigner(), d.callRegistry, CALL, "commit", [perpId, hash, horizon], "commit", { ...tag, horizon, strategy: bot.spec.strategy });
 }
 
 /**
@@ -168,7 +169,7 @@ async function actCommit(ctx: Ctx, bot: BotRuntime, perpId: bigint) {
 export async function tickAll(ctx: Ctx, bots: BotRuntime[]) {
   const t0 = Date.now();
   try {
-    const kb = await ctx.pc.getBalance({ address: ctx.keeper.account.address });
+    const kb = await ctx.pc.getBalance({ address: ctx.keeperAddress });
     if (kb < MIN_KEEPER_BALANCE_WEI) ctx.log({ evt: "LOW_BALANCE_keeper", balanceWei: kb });
   } catch (e) {
     ctx.log({ evt: "error", label: "keeper_balance", reason: shortErr(e) }); // a flaky RPC must not abort the whole tick
@@ -180,19 +181,40 @@ export async function tickAll(ctx: Ctx, bots: BotRuntime[]) {
   const settles: OpenItem[] = [];
   const free: { bot: BotRuntime; perpId: bigint }[] = [];
 
-  // scan: one read per pair (+ one getCall per open call)
-  for (const bot of bots) {
-    for (const perpId of bot.spec.markets) {
-      try {
-        const id = (await ctx.pc.readContract({ address: ctx.deployment.callRegistry, abi: CALL, functionName: "openCallId", args: [bot.signer.account.address, perpId] })) as bigint;
-        if (id === 0n) { free.push({ bot, perpId }); continue; }
-        const c = await getCall(ctx, id);
-        const it = { bot, perpId, id, c };
+  // scan: ONE Multicall3 eth_call reads every pair's open call id (public RPC allows only ~15 calls/s and Cloudflare Free
+  // 50 subrequests/run; 12 separate reads is the wrong shape). A second multicall fetches the open calls' details.
+  const pairs = bots.flatMap((bot) => bot.spec.markets.map((perpId) => ({ bot, perpId })));
+  const openPairs: { bot: BotRuntime; perpId: bigint; id: bigint }[] = [];
+  try {
+    const idRes = await ctx.pc.multicall({
+      allowFailure: true,
+      contracts: pairs.map(({ bot, perpId }) => ({ address: ctx.deployment.callRegistry, abi: CALL, functionName: "openCallId", args: [bot.address, perpId] })),
+    } as never);
+    (idRes as { status: string; result?: unknown }[]).forEach((r, i) => {
+      if (r.status !== "success") { ctx.log({ evt: "error", label: "scan", bot: pairs[i].bot.spec.handle, perpId: pairs[i].perpId, reason: "multicall item failed" }); return; }
+      const id = r.result as bigint;
+      if (id === 0n) free.push(pairs[i]);
+      else openPairs.push({ ...pairs[i], id });
+    });
+  } catch (e) {
+    ctx.log({ evt: "error", label: "scan", reason: shortErr(e) }); // whole scan failed (RPC down/limited): do nothing this tick, retry next
+  }
+  if (openPairs.length) {
+    try {
+      const callRes = await ctx.pc.multicall({
+        allowFailure: true,
+        contracts: openPairs.map((o) => ({ address: ctx.deployment.callRegistry, abi: CALL, functionName: "getCall", args: [o.id] })),
+      } as never);
+      (callRes as { status: string; result?: unknown }[]).forEach((r, i) => {
+        if (r.status !== "success") { ctx.log({ evt: "error", label: "scan_getCall", callId: openPairs[i].id, reason: "multicall item failed" }); return; }
+        const c = r.result as unknown as Call;
+        const o = openPairs[i];
+        const it = { bot: o.bot, perpId: o.perpId, id: o.id, c };
         if (c.status === Status.Sealed && (now > c.horizonEnd || now >= c.commitTime + BigInt(Math.floor(c.horizonSecs / 2)))) urgent.push(it);
         else if (c.status === Status.Revealed && now >= c.horizonEnd) settles.push(it);
-      } catch (e) {
-        ctx.log({ evt: "error", label: "scan", bot: bot.spec.handle, perpId, reason: shortErr(e) });
-      }
+      });
+    } catch (e) {
+      ctx.log({ evt: "error", label: "scan_getCall", reason: shortErr(e) });
     }
   }
   urgent.sort((x, y) => (x.c.horizonEnd < y.c.horizonEnd ? -1 : x.c.horizonEnd > y.c.horizonEnd ? 1 : 0));
@@ -211,7 +233,7 @@ export async function tickAll(ctx: Ctx, bots: BotRuntime[]) {
 /** One-time setup per bot: AUSD bond (from the real Agora faucet if needed), approve, register as isBot=true. */
 export async function bootstrapBot(ctx: Ctx, bot: BotRuntime, faucet: Address) {
   const d = ctx.deployment;
-  const who = bot.signer.account.address;
+  const who = bot.address;
   const cur = (await ctx.pc.readContract({ address: d.curatorRegistry, abi: CURATORS, functionName: "getCurator", args: [who] })) as { registered: boolean };
   if (cur.registered) return ctx.log({ evt: "bootstrap_already_registered", bot: bot.spec.handle });
   const erc20 = [
@@ -222,11 +244,11 @@ export async function bootstrapBot(ctx: Ctx, bot: BotRuntime, faucet: Address) {
   const bal = (await ctx.pc.readContract({ address: d.bondToken, abi: erc20, functionName: "balanceOf", args: [who] })) as bigint;
   if (bal < BigInt(d.minBond)) {
     for (let i = 0; i < 6; i++) {
-      const r = await send(ctx, bot.signer, faucet, faucetAbi as unknown as Abi, "requestFunds", [who], "bootstrap_faucet", { bot: bot.spec.handle });
+      const r = await send(ctx, bot.getSigner(), faucet, faucetAbi as unknown as Abi, "requestFunds", [who], "bootstrap_faucet", { bot: bot.spec.handle });
       if (r?.ok) break;
       await new Promise((res) => setTimeout(res, 62_000)); // faucet: 1 call / 60 s, global
     }
   }
-  await send(ctx, bot.signer, d.bondToken, erc20 as unknown as Abi, "approve", [d.curatorRegistry, 2n ** 256n - 1n], "bootstrap_approve", { bot: bot.spec.handle });
-  await send(ctx, bot.signer, d.curatorRegistry, CURATORS, "register", [bot.spec.handle, bot.spec.metadataURI, true, BigInt(d.minBond)], "bootstrap_register", { bot: bot.spec.handle });
+  await send(ctx, bot.getSigner(), d.bondToken, erc20 as unknown as Abi, "approve", [d.curatorRegistry, 2n ** 256n - 1n], "bootstrap_approve", { bot: bot.spec.handle });
+  await send(ctx, bot.getSigner(), d.curatorRegistry, CURATORS, "register", [bot.spec.handle, bot.spec.metadataURI, true, BigInt(d.minBond)], "bootstrap_register", { bot: bot.spec.handle });
 }

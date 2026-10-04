@@ -6,9 +6,20 @@
 import type { Hex } from "viem";
 import production from "../../deployments/production.json" with { type: "json" };
 import staging from "../../deployments/staging.json" with { type: "json" };
-import { BOTS, type Deployment } from "./config.js";
+import { BOTS, BOT_ADDRESSES, KEEPER_ADDRESS, type Deployment } from "./config.js";
 import { makePublicClient, makeSigner } from "./chain.js";
-import { tickAll, type BotRuntime, type Ctx } from "./tick.js";
+import { tickAll, type BotRuntime, type Ctx, type Signer } from "./tick.js";
+
+function lazySigner(make: () => Signer, expected: string): () => Signer {
+  let v: Signer | undefined;
+  return () => {
+    if (!v) {
+      v = make();
+      if (v.account.address.toLowerCase() !== expected.toLowerCase()) throw new Error(`key does not match the expected address ${expected}`);
+    }
+    return v;
+  };
+}
 
 export interface Env {
   DEPLOY: "production" | "staging";
@@ -35,7 +46,8 @@ function build(env: Env, force: boolean, events: Record<string, unknown>[]): { c
     deployment,
     perplApi: env.PERPL_API,
     masterSecret: env.BOT_SECRET,
-    keeper: makeSigner(env.MONAD_RPC, env.KEEPER_PRIVATE_KEY),
+    keeperAddress: KEEPER_ADDRESS,
+    getKeeper: lazySigner(() => makeSigner(env.MONAD_RPC, env.KEEPER_PRIVATE_KEY), KEEPER_ADDRESS),
     nowSec: () => BigInt(Math.floor(Date.now() / 1000)),
     log: (e) => {
       const line = JSON.stringify({ deploy: env.DEPLOY, ...e }, (_k, v) => (typeof v === "bigint" ? v.toString() : v));
@@ -53,7 +65,8 @@ function build(env: Env, force: boolean, events: Record<string, unknown>[]): { c
   }
   const bots: BotRuntime[] = BOTS.map((spec) => ({
     spec,
-    signer: makeSigner(env.MONAD_RPC, env[`${spec.envPrefix}_PRIVATE_KEY` as keyof Env] as Hex),
+    address: BOT_ADDRESSES[spec.envPrefix],
+    getSigner: lazySigner(() => makeSigner(env.MONAD_RPC, env[`${spec.envPrefix}_PRIVATE_KEY` as keyof Env] as Hex), BOT_ADDRESSES[spec.envPrefix]),
   }));
   return { ctx, bots };
 }
