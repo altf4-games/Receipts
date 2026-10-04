@@ -42,13 +42,14 @@ contract ForkTest is Test {
     function _deployAt(uint256 blockNumber) internal {
         vm.createSelectFork(rpc, blockNumber);
         curators = new CuratorRegistry(owner, IERC20(AUSD), MIN_BOND);
+        address predicted = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
         registry = new CallRegistry(
-            owner, ICuratorBonded(address(curators)), IPerplExchange(EXCHANGE), address(1), HORIZON, MAX_AGE
+            owner, ICuratorBonded(address(curators)), IPerplExchange(EXCHANGE), predicted, HORIZON, MAX_AGE, 1 days
         );
         settler = new SettlerV1(registry, IPerplExchange(EXCHANGE), MAX_AGE);
+        require(address(settler) == predicted, "settler prediction");
         vm.startPrank(owner);
         curators.setCallRegistry(address(registry));
-        registry.setSettler(address(settler));
         for (uint256 i = 0; i < 5; i++) registry.setMarketAllowed(_markets()[i], true);
         vm.stopPrank();
 

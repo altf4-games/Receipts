@@ -134,6 +134,15 @@ contract CuratorRegistryTest is Base {
         vm.stopPrank();
     }
 
+    function test_ownership_isTwoStep() public {
+        vm.prank(owner);
+        curators.transferOwnership(bob);
+        assertEq(curators.owner(), owner);
+        vm.prank(bob);
+        curators.acceptOwnership();
+        assertEq(curators.owner(), bob);
+    }
+
     function test_setCallRegistry_onlyOnceAndOnlyOwner() public {
         vm.prank(owner);
         vm.expectRevert(CuratorRegistry.CallRegistryAlreadySet.selector);

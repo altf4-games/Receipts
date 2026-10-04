@@ -188,7 +188,7 @@ contract CallRegistryTest is Base {
 
     function test_A6_hashFromOneDeploymentCannotRevealOnAnother() public {
         CallRegistry other = new CallRegistry(
-            owner, ICuratorBonded(address(curators)), IPerplExchange(address(ex)), address(settlerV1), MIN_HORIZON, MAX_ORACLE_AGE
+            owner, ICuratorBonded(address(curators)), IPerplExchange(address(ex)), address(settlerV1), MIN_HORIZON, MAX_ORACLE_AGE, SETTLER_DELAY
         );
         vm.prank(owner);
         other.setMarketAllowed(BTC, true);
@@ -323,29 +323,127 @@ contract CallRegistryTest is Base {
         assertEq(registry.openCallId(alice, BTC), 0);
     }
 
-    function test_A14_settlerRotation_emitsEvent_oldSettlerLosesPower() public {
+    function test_A14_settlerRotation_timelocked_oldSettlerKeepsPowerUntilActivation() public {
         uint256 id = _commitLong(alice, BTC, 500, 300, SALT);
         registry.reveal(id, 1, 500, 300, SALT);
         address newSettler = makeAddr("settlerV2");
 
+        vm.expectEmit(true, false, false, true);
+        emit CallRegistry.SettlerProposed(newSettler, uint64(block.timestamp) + SETTLER_DELAY);
+        vm.prank(owner);
+        registry.proposeSettler(newSettler);
+
+        // nothing changed yet: old settler still rules, new one has no power, activation is blocked
+        assertEq(registry.settler(), address(settlerV1));
+        vm.prank(newSettler);
+        vm.expectRevert(CallRegistry.NotSettler.selector);
+        registry.close(id, 0, 0);
+        vm.expectRevert(abi.encodeWithSelector(CallRegistry.SettlerDelayActive.selector, uint64(block.timestamp) + SETTLER_DELAY));
+        registry.activateSettler();
+
+        vm.warp(block.timestamp + SETTLER_DELAY - 1);
+        vm.expectRevert();
+        registry.activateSettler(); // one second early
+
+        vm.warp(block.timestamp + 1);
         vm.expectEmit(true, true, false, false);
         emit CallRegistry.SettlerChanged(address(settlerV1), newSettler);
-        vm.prank(owner);
-        registry.setSettler(newSettler);
+        registry.activateSettler(); // anyone
 
         vm.prank(address(settlerV1));
         vm.expectRevert(CallRegistry.NotSettler.selector);
         registry.close(id, 0, 0);
-
         vm.prank(newSettler); // a v2 can settle what v1 never did
         registry.close(id, -300, 0);
         assertEq(registry.getCall(id).scoreBps, -300);
+        assertEq(registry.pendingSettler(), address(0));
+    }
+
+    function test_settlerProposal_cancelAndGuards() public {
+        vm.expectRevert(CallRegistry.NoPendingSettler.selector);
+        registry.activateSettler();
+
+        vm.startPrank(owner);
+        vm.expectRevert(CallRegistry.NoPendingSettler.selector);
+        registry.cancelSettlerProposal();
+        vm.expectRevert(CallRegistry.ZeroAddress.selector);
+        registry.proposeSettler(address(0));
+        registry.proposeSettler(makeAddr("s2"));
+        vm.stopPrank();
+
+        vm.prank(alice);
+        vm.expectRevert();
+        registry.proposeSettler(alice);
+        vm.prank(alice);
+        vm.expectRevert();
+        registry.cancelSettlerProposal();
+
+        vm.prank(owner);
+        registry.cancelSettlerProposal();
+        vm.warp(block.timestamp + SETTLER_DELAY + 1);
+        vm.expectRevert(CallRegistry.NoPendingSettler.selector);
+        registry.activateSettler(); // cancelled proposal can never activate
+        assertEq(registry.settler(), address(settlerV1));
+    }
+
+    function test_settlerProposal_reproposeResetsClock() public {
+        vm.startPrank(owner);
+        registry.proposeSettler(makeAddr("s2"));
+        vm.warp(block.timestamp + SETTLER_DELAY - 10);
+        address s3 = makeAddr("s3");
+        registry.proposeSettler(s3); // replaces and restarts the delay
+        vm.stopPrank();
+        vm.warp(block.timestamp + 11);
+        vm.expectRevert();
+        registry.activateSettler();
+        vm.warp(block.timestamp + SETTLER_DELAY);
+        registry.activateSettler();
+        assertEq(registry.settler(), s3);
+    }
+
+    function test_constructor_zeroSettlerReverts() public {
+        vm.expectRevert(CallRegistry.ZeroAddress.selector);
+        new CallRegistry(owner, ICuratorBonded(address(curators)), IPerplExchange(address(ex)), address(0), MIN_HORIZON, MAX_ORACLE_AGE, SETTLER_DELAY);
+    }
+
+    function test_marketAllowlist_rejectsIdsThatWouldTruncateToUint32() public {
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(CallRegistry.PerpIdTooLarge.selector, uint256(type(uint32).max) + 1));
+        registry.setMarketAllowed(uint256(type(uint32).max) + 1, true);
+        vm.prank(owner);
+        registry.setMarketAllowed(type(uint32).max, true); // the boundary itself is fine
+        // and the slot of an allowlisted id frees correctly (no truncation mismatch)
+        ex.setOracle(type(uint32).max, 1000, block.timestamp, 1);
+        bytes32 h = _hash(alice, type(uint32).max, 1, 500, 300, 3600, SALT);
+        vm.prank(alice);
+        uint256 id = registry.commit(type(uint32).max, h, 3600);
+        vm.warp(block.timestamp + 3601);
+        registry.expire(id);
+        assertEq(registry.openCallId(alice, type(uint32).max), 0);
+        assertEq(registry.openCallCount(alice), 0);
+    }
+
+    function test_ownership_isTwoStep() public {
+        vm.prank(owner);
+        registry.transferOwnership(bob);
+        assertEq(registry.owner(), owner, "must not move until accepted");
+        vm.prank(bob);
+        registry.acceptOwnership();
+        assertEq(registry.owner(), bob);
+        vm.prank(owner);
+        vm.expectRevert();
+        registry.setMarketAllowed(1, true);
+
+        // a typo address can never take over: it cannot accept
+        vm.prank(bob);
+        registry.transferOwnership(address(0xdead));
+        assertEq(registry.owner(), bob);
     }
 
     function test_owner_onlyFunctions_andOracleAgeBounds() public {
         vm.startPrank(alice);
         vm.expectRevert();
-        registry.setSettler(alice);
+        registry.proposeSettler(alice);
         vm.expectRevert();
         registry.setMarketAllowed(1, true);
         vm.expectRevert();
@@ -358,8 +456,6 @@ contract CallRegistryTest is Base {
         vm.expectRevert(CallRegistry.OracleAgeOutOfRange.selector);
         registry.setMaxOracleAge(601);
         registry.setMaxOracleAge(600);
-        vm.expectRevert(CallRegistry.ZeroAddress.selector);
-        registry.setSettler(address(0));
         vm.stopPrank();
     }
 

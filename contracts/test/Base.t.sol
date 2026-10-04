@@ -13,6 +13,7 @@ abstract contract Base is Test {
     uint256 internal constant MIN_BOND = 50e6;
     uint32 internal constant MIN_HORIZON = 900;
     uint32 internal constant MAX_ORACLE_AGE = 120;
+    uint32 internal constant SETTLER_DELAY = 1 days;
     uint256 internal constant BTC = 16;
     uint256 internal constant ETH = 32;
 
@@ -35,14 +36,21 @@ abstract contract Base is Test {
         ex.setOracle(ETH, 269_510, block.timestamp, 2);
 
         curators = new CuratorRegistry(owner, token, MIN_BOND);
-        CallRegistry r = new CallRegistry(
-            owner, ICuratorBonded(address(curators)), IPerplExchange(address(ex)), address(1), MIN_HORIZON, MAX_ORACLE_AGE
+        // registry needs its settler at construction: predict the address (registry = nonce n, settler = n+1)
+        address predictedSettler = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
+        registry = new CallRegistry(
+            owner,
+            ICuratorBonded(address(curators)),
+            IPerplExchange(address(ex)),
+            predictedSettler,
+            MIN_HORIZON,
+            MAX_ORACLE_AGE,
+            SETTLER_DELAY
         );
-        registry = r;
         settlerV1 = new SettlerV1(registry, IPerplExchange(address(ex)), MAX_ORACLE_AGE);
+        assertEq(address(settlerV1), predictedSettler);
         vm.startPrank(owner);
         curators.setCallRegistry(address(registry));
-        registry.setSettler(address(settlerV1));
         registry.setMarketAllowed(BTC, true);
         registry.setMarketAllowed(ETH, true);
         vm.stopPrank();
