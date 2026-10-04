@@ -1,0 +1,40 @@
+# --- Docs policy: only README.md files are committed. All other .md (CLAUDE.md, plan.md, docs/*) stay local. ---
+*.md
+!README.md
+
+# secrets
+.env
+.env.*
+!.env.example
+*.key
+keystore/
+
+# node / ts
+node_modules/
+dist/
+.next/
+.turbo/
+*.tsbuildinfo
+coverage/
+
+# foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/*/dry-run/
+contracts/lib/
+
+# envio
+indexer/generated/
+indexer/.envio/
+
+# cre
+cre/**/.cre/
+cre/**/*.wasm
+
+# os / editor
+.DS_Store
+.vscode/
+.idea/
+
+# local-only evidence data
+docs/
