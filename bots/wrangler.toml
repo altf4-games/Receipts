@@ -15,9 +15,11 @@ DEPLOY = "production"
 MONAD_RPC = "https://testnet-rpc.monad.xyz"
 PERPL_API = "https://testnet.perpl.xyz/api"
 
-# Stateless tick every minute. Capped at 3 tx per tick (see tick.ts) to bound CPU, wall time and subrequests.
+# Stateless tick every 5 minutes (minutes 0,5,10...). Capped at 3 tx per tick (see tick.ts). The backup below runs at minutes
+# 2,7,12... so the two never fire together (no nonce races) and together tick about every 2.5 min. Reveal windows are ~2 h wide,
+# commit windows 20 min, so 5-minute granularity per Worker is plenty; 5x fewer runs also means 5x fewer chances to trip a limit.
 [triggers]
-crons = ["* * * * *"]
+crons = ["*/5 * * * *"]
 
 [env.staging]
 name = "receipts-bots-staging"
@@ -33,3 +35,19 @@ PERPL_API = "https://testnet.perpl.xyz/api"
 TEST_HORIZON_BASE = "60"
 TEST_JITTER_MOD = "10"
 TEST_FORCE = "0"
+
+# --- backup: same code under a different Worker name, runs every 5 min. If the primary Worker ever dies (it did once on
+# 2026-10-04/05, cause unknown, see docs/bugs.md) this keeps reveals/expiries/settles flowing. The tick is idempotent, so
+# an overlapping run is skipped by the estimateGas guard; the worst case is a rare nonce race, not duplicate state.
+[env.backup]
+name = "receipts-bots-backup"
+workers_dev = true
+preview_urls = false
+[env.backup.triggers]
+crons = ["2-59/5 * * * *"]
+[env.backup.observability]
+enabled = true
+[env.backup.vars]
+DEPLOY = "production"
+MONAD_RPC = "https://testnet-rpc.monad.xyz"
+PERPL_API = "https://testnet.perpl.xyz/api"
