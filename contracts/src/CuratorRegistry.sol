@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -15,7 +15,7 @@ interface ICallRegistryCounts {
 /// @notice Who may publish calls. A curator posts a bond, picks a unique handle and declares whether it is a bot.
 ///         Bot labelling is enforced by handle: "bot:" prefix if and only if `isBot`.
 ///         The bond is a sybil-cost deposit, NOT slashed in v1 (disclosed).
-contract CuratorRegistry is Ownable {
+contract CuratorRegistry is Ownable2Step {
     using SafeERC20 for IERC20;
 
     uint64 public constant UNBOND_COOLDOWN = 1 days;

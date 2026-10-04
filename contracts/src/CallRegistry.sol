@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {IPerplExchange} from "./interfaces/IPerplExchange.sol";
 import {PerplOracleLib} from "./libraries/PerplOracleLib.sol";
 
@@ -22,8 +22,12 @@ interface ICuratorBonded {
 ///   direction: 1 = long, 2 = short.
 ///
 /// Owner powers (all of them, nothing else): add/remove markets for NEW commits, tune `maxOracleAge` inside
-/// [MIN_ORACLE_AGE, MAX_ORACLE_AGE_CEILING], and rotate the settler (every rotation emits an event).
-contract CallRegistry is Ownable {
+/// [MIN_ORACLE_AGE, MAX_ORACLE_AGE_CEILING], and rotate the settler through a TIMELOCK: `proposeSettler`
+/// emits an event, nothing changes for `settlerDelay` seconds, then anyone may `activateSettler`. The owner
+/// can cancel a pending proposal. Ownership transfer is two-step.
+/// Trust boundary (disclosed): the exchange address is immutable. If Perpl migrates to a new Exchange, a new
+/// registry is deployed; this one stays readable forever.
+contract CallRegistry is Ownable2Step {
     enum Status {
         None,
         Sealed,
@@ -68,9 +72,12 @@ contract CallRegistry is Ownable {
     ICuratorBonded public immutable curators;
     IPerplExchange public immutable exchange;
     uint32 public immutable minHorizon;
+    uint32 public immutable settlerDelay;
 
     uint32 public maxOracleAge;
     address public settler;
+    address public pendingSettler;
+    uint64 public pendingSettlerEta;
     uint256 public nextCallId = 1;
 
     mapping(uint256 => Call) private _calls;
@@ -95,6 +102,8 @@ contract CallRegistry is Ownable {
     event Expired(uint256 indexed callId);
     event Closed(uint256 indexed callId, int32 scoreBps, uint16 flags, address settler);
     event SettlerChanged(address indexed oldSettler, address indexed newSettler);
+    event SettlerProposed(address indexed newSettler, uint64 eta);
+    event SettlerProposalCancelled(address indexed cancelled);
     event MarketAllowedSet(uint256 indexed perpId, bool allowed);
     event MaxOracleAgeSet(uint32 maxOracleAge);
 
@@ -112,6 +121,9 @@ contract CallRegistry is Ownable {
     error ScoreOutOfBounds(int32 scoreBps, int32 lo, int32 hi);
     error OracleAgeOutOfRange();
     error ZeroAddress();
+    error PerpIdTooLarge(uint256 perpId);
+    error NoPendingSettler();
+    error SettlerDelayActive(uint64 eta);
 
     constructor(
         address owner_,
@@ -119,9 +131,13 @@ contract CallRegistry is Ownable {
         IPerplExchange exchange_,
         address settler_,
         uint32 minHorizon_,
-        uint32 maxOracleAge_
+        uint32 maxOracleAge_,
+        uint32 settlerDelay_
     ) Ownable(owner_) {
-        if (address(curators_) == address(0) || address(exchange_) == address(0)) revert ZeroAddress();
+        if (address(curators_) == address(0) || address(exchange_) == address(0) || settler_ == address(0)) {
+            revert ZeroAddress();
+        }
+        settlerDelay = settlerDelay_;
         curators = curators_;
         exchange = exchange_;
         minHorizon = minHorizon_;
@@ -135,7 +151,7 @@ contract CallRegistry is Ownable {
     /// @notice Seal a call. The oracle price and time are read from Perpl inside this transaction.
     function commit(uint256 perpId, bytes32 hash, uint32 horizonSecs) external returns (uint256 callId) {
         if (!curators.isBonded(msg.sender)) revert NotBonded(msg.sender);
-        if (!marketAllowed[perpId]) revert MarketNotAllowed(perpId);
+        if (!marketAllowed[perpId]) revert MarketNotAllowed(perpId); // allowlisted ids always fit uint32
         if (horizonSecs < minHorizon || horizonSecs > MAX_HORIZON) {
             revert HorizonOutOfRange(horizonSecs, minHorizon, MAX_HORIZON);
         }
@@ -237,13 +253,36 @@ contract CallRegistry is Ownable {
 
     // ------------------------------------------------------------ owner
 
-    function setSettler(address newSettler) external onlyOwner {
+    /// @notice Step 1 of a settler rotation. Nothing changes until `activateSettler` after `settlerDelay`.
+    function proposeSettler(address newSettler) external onlyOwner {
         if (newSettler == address(0)) revert ZeroAddress();
-        emit SettlerChanged(settler, newSettler);
-        settler = newSettler;
+        pendingSettler = newSettler;
+        pendingSettlerEta = uint64(block.timestamp) + settlerDelay;
+        emit SettlerProposed(newSettler, pendingSettlerEta);
+    }
+
+    /// @notice Step 2. Anyone may call once the delay has passed (no liveness dependency on the owner).
+    function activateSettler() external {
+        address next = pendingSettler;
+        if (next == address(0)) revert NoPendingSettler();
+        if (block.timestamp < pendingSettlerEta) revert SettlerDelayActive(pendingSettlerEta);
+        emit SettlerChanged(settler, next);
+        settler = next;
+        pendingSettler = address(0);
+        pendingSettlerEta = 0;
+    }
+
+    function cancelSettlerProposal() external onlyOwner {
+        address p = pendingSettler;
+        if (p == address(0)) revert NoPendingSettler();
+        pendingSettler = address(0);
+        pendingSettlerEta = 0;
+        emit SettlerProposalCancelled(p);
     }
 
     function setMarketAllowed(uint256 perpId, bool allowed) external onlyOwner {
+        // Call.perpId is stored as uint32; a larger id would truncate and strand the curator's slot.
+        if (perpId > type(uint32).max) revert PerpIdTooLarge(perpId);
         marketAllowed[perpId] = allowed;
         emit MarketAllowedSet(perpId, allowed);
     }

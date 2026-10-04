@@ -13,7 +13,7 @@ import {IPerplExchange} from "../src/interfaces/IPerplExchange.sol";
 /// constructor (no placeholder, no extra rotation event in the history).
 ///
 /// env: DEPLOYER_PRIVATE_KEY, DEPLOY_NAME (e.g. "staging" | "production"), MIN_HORIZON (seconds),
-///      EXCHANGE, BOND_TOKEN, MIN_BOND, MAX_ORACLE_AGE
+///      EXCHANGE, BOND_TOKEN, MIN_BOND, MAX_ORACLE_AGE, SETTLER_DELAY (seconds, settler-rotation timelock)
 /// Writes ../deployments/<DEPLOY_NAME>.json
 contract Deploy is Script {
     function run() external {
@@ -22,6 +22,7 @@ contract Deploy is Script {
         string memory name = vm.envString("DEPLOY_NAME");
         uint32 minHorizon = uint32(vm.envUint("MIN_HORIZON"));
         uint32 maxOracleAge = uint32(vm.envUint("MAX_ORACLE_AGE"));
+        uint32 settlerDelay = uint32(vm.envUint("SETTLER_DELAY"));
         address exchange = vm.envAddress("EXCHANGE");
         address bondToken = vm.envAddress("BOND_TOKEN");
         uint256 minBond = vm.envUint("MIN_BOND");
@@ -32,7 +33,7 @@ contract Deploy is Script {
         vm.startBroadcast(pk);
         CuratorRegistry curators = new CuratorRegistry(deployer, IERC20(bondToken), minBond);
         CallRegistry registry = new CallRegistry(
-            deployer, ICuratorBonded(address(curators)), IPerplExchange(exchange), predictedSettler, minHorizon, maxOracleAge
+            deployer, ICuratorBonded(address(curators)), IPerplExchange(exchange), predictedSettler, minHorizon, maxOracleAge, settlerDelay
         );
         SettlerV1 settler = new SettlerV1(registry, IPerplExchange(exchange), maxOracleAge);
         require(address(settler) == predictedSettler, "settler address prediction failed");
@@ -58,6 +59,7 @@ contract Deploy is Script {
         vm.serializeUint(o, "minBond", vm.envUint("MIN_BOND"));
         vm.serializeUint(o, "minHorizon", vm.envUint("MIN_HORIZON"));
         vm.serializeUint(o, "maxOracleAge", vm.envUint("MAX_ORACLE_AGE"));
+        vm.serializeUint(o, "settlerDelay", vm.envUint("SETTLER_DELAY"));
         vm.serializeAddress(o, "curatorRegistry", curators);
         vm.serializeAddress(o, "callRegistry", registry);
         string memory out = vm.serializeAddress(o, "settlerV1", settler);
