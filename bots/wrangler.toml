@@ -1,0 +1,31 @@
+name = "receipts-bots"
+main = "src/worker.ts"
+compatibility_date = "2026-09-01"
+# workers.dev stays ON: with it off, the cron trigger did not fire in testing (2026-10-04). Preview URLs are off.
+# The only HTTP route is a banner plus /tick, which needs the secret ADMIN_TOKEN.
+workers_dev = true
+preview_urls = false
+
+[vars]
+DEPLOY = "production"
+MONAD_RPC = "https://testnet-rpc.monad.xyz"
+PERPL_API = "https://testnet.perpl.xyz/api"
+
+# Stateless tick every minute. Capped at 3 tx per tick (see tick.ts) to bound CPU, wall time and subrequests.
+[triggers]
+crons = ["* * * * *"]
+
+[env.staging]
+name = "receipts-bots-staging"
+workers_dev = false
+preview_urls = false
+# staging cron OFF after the CPU measurement (set to ["* * * * *"] and TEST_FORCE="1" to re-run it)
+[env.staging.triggers]
+crons = []
+[env.staging.vars]
+DEPLOY = "staging"
+MONAD_RPC = "https://testnet-rpc.monad.xyz"
+PERPL_API = "https://testnet.perpl.xyz/api"
+TEST_HORIZON_BASE = "60"
+TEST_JITTER_MOD = "10"
+TEST_FORCE = "0"
