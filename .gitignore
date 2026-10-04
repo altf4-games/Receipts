@@ -39,3 +39,7 @@ cre/**/*.wasm
 
 # local-only evidence data
 docs/
+
+# wrangler local secrets
+.dev.vars
+bots/.dev.vars

@@ -60,9 +60,25 @@ function build(env: Env, force: boolean, events: Record<string, unknown>[]): { c
 
 export default {
   async scheduled(_event: unknown, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
-    const events: Record<string, unknown>[] = [];
-    const { ctx: c, bots } = build(env, env.DEPLOY === "staging" && env.TEST_FORCE === "1", events);
-    ctx.waitUntil(tickAll(c, bots));
+    try {
+      const events: Record<string, unknown>[] = [];
+      const { ctx: c, bots } = build(env, env.DEPLOY === "staging" && env.TEST_FORCE === "1", events);
+      ctx.waitUntil(
+        tickAll(c, bots).catch((e) => {
+          console.error(JSON.stringify({ evt: "worker_tick_failed", reason: String(e).slice(0, 300) }));
+          throw e;
+        }),
+      );
+    } catch (e) {
+      // setup failures used to surface only as an empty "exception" outcome; make them visible (names only, never values)
+      console.error(JSON.stringify({
+        evt: "worker_fatal",
+        reason: String((e as Error)?.message ?? e).slice(0, 300),
+        stack: String((e as Error)?.stack ?? "").slice(0, 400),
+        envKeysPresent: Object.keys(env as unknown as Record<string, unknown>).sort(),
+      }));
+      throw e;
+    }
   },
 
   async fetch(req: Request, env: Env): Promise<Response> {
