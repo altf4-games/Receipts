@@ -6,6 +6,10 @@ compatibility_date = "2026-09-01"
 workers_dev = true
 preview_urls = false
 
+# Persistent logs (free allowance: 200k events/day; we emit roughly 1-3 per run). Without this, runs are only visible in a live `wrangler tail`.
+[observability]
+enabled = true
+
 [vars]
 DEPLOY = "production"
 MONAD_RPC = "https://testnet-rpc.monad.xyz"
