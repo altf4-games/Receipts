@@ -1,0 +1,14 @@
+{
+  "bondToken": "0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC",
+  "callRegistry": "0x1E9b6c2e6484CcbeA63F4567905012a28Fa1753C",
+  "chainId": 10143,
+  "curatorRegistry": "0x1e917319c379fd4e62Bf3207379E3d8bb1A468AF",
+  "deployer": "0x42F4D5eD7b5da3E12a01485CA7E5663879b59aD5",
+  "exchange": "0x1964C32f0bE608E7D29302AFF5E61268E72080cc",
+  "maxOracleAge": 120,
+  "minBond": 50000000,
+  "minHorizon": 900,
+  "name": "production",
+  "settlerDelay": 21600,
+  "settlerV1": "0xF39358B88cF73a1d9158f00b9D5E39A04543E03f"
+}
