@@ -19,7 +19,8 @@ function fresh() {
   const inner = ctx.log;
   ctx.log = (e) => { events.push(e); inner(e); };
   ctx.cadence = { periodSecs: 3600, windowSecs: 0 }; // no organic windows during the test
-  ctx.opts = { forceCommit: false, horizonBaseOverride: 60, jitterMod: 10 };
+  ctx.opts = { forceCommit: false, horizonBaseOverride: 120, jitterMod: 10 };
+  ctx.maxTxPerTick = 3; // production default; the setup tick raises it, the cap test lowers it
   return { ctx, bots };
 }
 
@@ -45,6 +46,7 @@ describe.sequential("BOTS live lifecycle on staging (stateless ticks)", () => {
     expect((await openIds(ctx, bots)).filter((x) => x.id !== 0n)).toHaveLength(0);
 
     ctx.opts!.forceCommit = true;
+    ctx.maxTxPerTick = 50; // setup only: let every pair commit in this one tick (the cap is tested separately below)
     events.length = 0;
     await tickAll(ctx, bots);
     const commits = events.filter((e) => e.evt === "commit");
@@ -65,7 +67,7 @@ describe.sequential("BOTS live lifecycle on staging (stateless ticks)", () => {
       last = fresh();
       await tickAll(last.ctx, last.bots);
       if ((await openIds(last.ctx, last.bots)).every((x) => x.id === 0n)) break;
-      await new Promise((r) => setTimeout(r, 6000));
+      await new Promise((r) => setTimeout(r, 3000));
     }
     expect((await openIds(last.ctx, last.bots)).filter((x) => x.id !== 0n), "calls still open after 9 minutes").toHaveLength(0);
 
@@ -106,5 +108,29 @@ describe.sequential("BOTS live lifecycle on staging (stateless ticks)", () => {
       expect(cur.handle.startsWith("bot:")).toBe(true);
       expect(cur.handle).toBe(b.spec.handle);
     }
+  });
+
+  test("the per-tick cap holds on live state: a forced tick with cap 2 sends exactly 2 txs and defers the rest; the backlog then drains", async () => {
+    const { ctx, bots } = fresh();
+    ctx.opts!.forceCommit = true;
+    ctx.maxTxPerTick = 2;
+    events.length = 0;
+    await tickAll(ctx, bots);
+    const tick = events.find((e) => e.evt === "tick")!;
+    expect(tick.txSent).toBe(2);
+    expect(tick.deferred).toBe(true);
+    expect(events.filter((e) => e.evt === "commit")).toHaveLength(2);
+
+    // drain: normal ticks (cap 3, no forcing) must reveal + settle those 2 calls without errors
+    const deadline = Date.now() + 8 * 60_000;
+    let last = fresh();
+    while (Date.now() < deadline) {
+      last = fresh();
+      await tickAll(last.ctx, last.bots);
+      if ((await openIds(last.ctx, last.bots)).every((x) => x.id === 0n)) break;
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    expect((await openIds(last.ctx, last.bots)).filter((x) => x.id !== 0n), "backlog did not drain").toHaveLength(0);
+    expect(events.filter((e) => e.evt === "error" || e.evt === "CRITICAL_unrecoverable_call" || e.evt === "expire")).toHaveLength(0);
   });
 });

@@ -39,9 +39,15 @@ export interface Ctx {
   cadence?: Cadence;
   /** test hooks (never set in production) */
   opts?: { forceCommit?: boolean; horizonBaseOverride?: number; jitterMod?: number };
+  /** Max transactions one tick may send; the rest wait for the next tick. Bounds CPU, wall time and subrequests. Default 3. */
+  maxTxPerTick?: number;
+  /** internal per-tick counter */
+  _sent?: number;
 }
 
 const GAS_MARGIN = 1.15; // Monad charges the gas LIMIT, so keep margins tight
+const DEFAULT_MAX_TX_PER_TICK = 3;
+const budgetLeft = (ctx: Ctx) => (ctx._sent ?? 0) < (ctx.maxTxPerTick ?? DEFAULT_MAX_TX_PER_TICK);
 
 function shortErr(e: unknown): string {
   if (e instanceof BaseError) {
@@ -64,9 +70,10 @@ async function send(
     return null;
   }
   const gas = BigInt(Math.ceil(Number(est) * GAS_MARGIN));
+  ctx._sent = (ctx._sent ?? 0) + 1;
   try {
     const hash = await signer.client.writeContract({ address, abi, functionName: fn, args, gas, account: signer.account, chain: signer.client.chain } as never);
-    const rc = await ctx.pc.waitForTransactionReceipt({ hash, timeout: 45_000 });
+    const rc = await ctx.pc.waitForTransactionReceipt({ hash, timeout: 30_000, pollingInterval: 1000 });
     ctx.log({ evt: label, hash, status: rc.status, block: rc.blockNumber, gasLimit: gas, ...extra });
     return { hash, ok: rc.status === "success" };
   } catch (e) {
@@ -94,42 +101,44 @@ async function decide(ctx: Ctx, spec: BotSpec, perpId: bigint): Promise<Decision
   }
 }
 
-/** One bot, one market: advance whatever stage its single open call is in, or commit a new one if it is time. */
-async function handleMarket(ctx: Ctx, bot: BotRuntime, perpId: bigint) {
-  const d = ctx.deployment;
-  const curator = bot.signer.account.address;
-  const id = (await ctx.pc.readContract({ address: d.callRegistry, abi: CALL, functionName: "openCallId", args: [curator, perpId] })) as bigint;
-  const now = ctx.nowSec();
-  const tag = { bot: bot.spec.handle, perpId, callId: id };
+interface OpenItem { bot: BotRuntime; perpId: bigint; id: bigint; c: Call }
 
-  if (id !== 0n) {
-    const c = await getCall(ctx, id);
-    if (c.status === Status.Sealed) {
-      if (now > c.horizonEnd) {
-        await send(ctx, ctx.keeper, d.callRegistry, CALL, "expire", [id], "expire", tag);
-      } else if (now >= c.commitTime + BigInt(Math.floor(c.horizonSecs / 2))) {
-        const rec = recoverParams({
-          chainId: d.chainId, registry: d.callRegistry, curator, perpId, horizonSecs: c.horizonSecs,
-          secret: botSecret(ctx.masterSecret, bot.spec.handle), onchainHash: c.hash,
-        });
-        if (!rec) {
-          ctx.log({ evt: "CRITICAL_unrecoverable_call", ...tag, hash: c.hash, note: "wrong BOT_SECRET or params outside the candidate set; call will expire at -30%" });
-          return;
-        }
-        await send(ctx, ctx.keeper, d.callRegistry, CALL, "reveal", [id, rec.direction, rec.tpBps, rec.slBps, rec.salt], "reveal", { ...tag, dir: rec.direction, tp: rec.tpBps, sl: rec.slBps });
-      }
-    } else if (c.status === Status.Revealed && now >= c.horizonEnd) {
-      const o = await readOracle(ctx.pc, d.exchange, perpId);
-      if (o.ts >= c.horizonEnd) {
-        await send(ctx, ctx.keeper, d.settlerV1, SETTLER, "settle", [id], "settle", tag);
-      } else {
-        ctx.log({ evt: "waiting_for_oracle_sample", ...tag, oracleTs: o.ts, horizonEnd: c.horizonEnd });
-      }
-    }
+/** Deadline-sensitive: an unrevealed call that is overdue must be expired; one that is due must be revealed before horizonEnd. */
+async function actUrgent(ctx: Ctx, it: OpenItem) {
+  const d = ctx.deployment;
+  const { bot, perpId, id, c } = it;
+  const curator = bot.signer.account.address;
+  const tag = { bot: bot.spec.handle, perpId, callId: id };
+  const now = ctx.nowSec();
+  if (now > c.horizonEnd) {
+    await send(ctx, ctx.keeper, d.callRegistry, CALL, "expire", [id], "expire", tag);
     return;
   }
+  const rec = recoverParams({
+    chainId: d.chainId, registry: d.callRegistry, curator, perpId, horizonSecs: c.horizonSecs,
+    secret: botSecret(ctx.masterSecret, bot.spec.handle), onchainHash: c.hash,
+  });
+  if (!rec) {
+    ctx.log({ evt: "CRITICAL_unrecoverable_call", ...tag, hash: c.hash, note: "wrong BOT_SECRET or params outside the candidate set; call will expire at -30%" });
+    return;
+  }
+  await send(ctx, ctx.keeper, d.callRegistry, CALL, "reveal", [id, rec.direction, rec.tpBps, rec.slBps, rec.salt], "reveal", { ...tag, dir: rec.direction, tp: rec.tpBps, sl: rec.slBps });
+}
 
-  // slot free: is it this pair's commit window?
+async function actSettle(ctx: Ctx, it: OpenItem) {
+  const d = ctx.deployment;
+  const tag = { bot: it.bot.spec.handle, perpId: it.perpId, callId: it.id };
+  const o = await readOracle(ctx.pc, d.exchange, it.perpId);
+  if (o.ts >= it.c.horizonEnd) await send(ctx, ctx.keeper, d.settlerV1, SETTLER, "settle", [it.id], "settle", tag);
+  else ctx.log({ evt: "waiting_for_oracle_sample", ...tag, oracleTs: o.ts, horizonEnd: it.c.horizonEnd });
+}
+
+/** Free slot: commit only inside this pair's window (or when forced by a test). */
+async function actCommit(ctx: Ctx, bot: BotRuntime, perpId: bigint) {
+  const d = ctx.deployment;
+  const curator = bot.signer.account.address;
+  const now = ctx.nowSec();
+  const tag = { bot: bot.spec.handle, perpId, callId: 0n };
   const cad = ctx.cadence ?? DEFAULT_CADENCE;
   if (!ctx.opts?.forceCommit && !inCommitWindow(bot.spec.handle, perpId, now, cad.periodSecs, cad.windowSecs)) return;
 
@@ -149,21 +158,54 @@ async function handleMarket(ctx: Ctx, bot: BotRuntime, perpId: bigint) {
   await send(ctx, bot.signer, d.callRegistry, CALL, "commit", [perpId, hash, horizon], "commit", { ...tag, horizon, strategy: bot.spec.strategy });
 }
 
-/** One full pass over every bot and market. Safe to run concurrently or twice; stateless. */
+/**
+ * One full pass over every bot and market. Safe to run concurrently or twice; stateless.
+ * Work is ordered by urgency so the per-tick transaction cap can never starve a deadline:
+ *   1. reveal / expire (a missed reveal costs -30%), soonest horizon first
+ *   2. settle (can wait for the next tick)
+ *   3. new commits (spend only what is left)
+ */
 export async function tickAll(ctx: Ctx, bots: BotRuntime[]) {
   const t0 = Date.now();
-  const kb = await ctx.pc.getBalance({ address: ctx.keeper.account.address });
-  if (kb < MIN_KEEPER_BALANCE_WEI) ctx.log({ evt: "LOW_BALANCE_keeper", balanceWei: kb });
+  try {
+    const kb = await ctx.pc.getBalance({ address: ctx.keeper.account.address });
+    if (kb < MIN_KEEPER_BALANCE_WEI) ctx.log({ evt: "LOW_BALANCE_keeper", balanceWei: kb });
+  } catch (e) {
+    ctx.log({ evt: "error", label: "keeper_balance", reason: shortErr(e) }); // a flaky RPC must not abort the whole tick
+  }
+  ctx._sent = 0;
+  let deferred = false;
+  const now = ctx.nowSec();
+  const urgent: OpenItem[] = [];
+  const settles: OpenItem[] = [];
+  const free: { bot: BotRuntime; perpId: bigint }[] = [];
+
+  // scan: one read per pair (+ one getCall per open call)
   for (const bot of bots) {
     for (const perpId of bot.spec.markets) {
       try {
-        await handleMarket(ctx, bot, perpId);
+        const id = (await ctx.pc.readContract({ address: ctx.deployment.callRegistry, abi: CALL, functionName: "openCallId", args: [bot.signer.account.address, perpId] })) as bigint;
+        if (id === 0n) { free.push({ bot, perpId }); continue; }
+        const c = await getCall(ctx, id);
+        const it = { bot, perpId, id, c };
+        if (c.status === Status.Sealed && (now > c.horizonEnd || now >= c.commitTime + BigInt(Math.floor(c.horizonSecs / 2)))) urgent.push(it);
+        else if (c.status === Status.Revealed && now >= c.horizonEnd) settles.push(it);
       } catch (e) {
-        ctx.log({ evt: "error", bot: bot.spec.handle, perpId, reason: shortErr(e) });
+        ctx.log({ evt: "error", label: "scan", bot: bot.spec.handle, perpId, reason: shortErr(e) });
       }
     }
   }
-  ctx.log({ evt: "tick", ms: Date.now() - t0, bots: bots.length });
+  urgent.sort((x, y) => (x.c.horizonEnd < y.c.horizonEnd ? -1 : x.c.horizonEnd > y.c.horizonEnd ? 1 : 0));
+
+  const run = async (label: string, fn: () => Promise<void>, who: Record<string, unknown>) => {
+    if (!budgetLeft(ctx)) { deferred = true; return; }
+    try { await fn(); } catch (e) { ctx.log({ evt: "error", label, ...who, reason: shortErr(e) }); }
+  };
+  for (const it of urgent) await run("urgent", () => actUrgent(ctx, it), { bot: it.bot.spec.handle, perpId: it.perpId });
+  for (const it of settles) await run("settle", () => actSettle(ctx, it), { bot: it.bot.spec.handle, perpId: it.perpId });
+  for (const f of free) await run("commit", () => actCommit(ctx, f.bot, f.perpId), { bot: f.bot.spec.handle, perpId: f.perpId });
+
+  ctx.log({ evt: "tick", ms: Date.now() - t0, bots: bots.length, txSent: ctx._sent, deferred, urgent: urgent.length, settles: settles.length, free: free.length });
 }
 
 /** One-time setup per bot: AUSD bond (from the real Agora faucet if needed), approve, register as isBot=true. */
