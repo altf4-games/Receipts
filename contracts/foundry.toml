@@ -8,5 +8,12 @@ optimizer_runs = 200
 # Monad supports Prague (docs.monad.xyz). Confirm against a live deploy in P1.6.
 evm_version = "prague"
 
+fs_permissions = [{ access = "read-write", path = "../deployments" }]
+
 [rpc_endpoints]
 monad_testnet = "${MONAD_TESTNET_RPC}"
+
+[lint]
+# Casts are range-checked (timestamps/blocks fit uint64) or bounded by caps; loops revert on bad input by design.
+exclude_lints = ["unsafe-typecast", "require-revert-in-loop"]
+lint_on_build = false
