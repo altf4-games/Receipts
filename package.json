@@ -1,0 +1,7 @@
+{
+  "name": "receipts",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "pnpm@10",
+  "engines": { "node": ">=20" }
+}
