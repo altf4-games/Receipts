@@ -1,0 +1,13 @@
+{
+  "bondToken": "0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC",
+  "callRegistry": "0xCC01E54Ca91b13e2d948b2ea639786151A130F9a",
+  "chainId": 10143,
+  "curatorRegistry": "0x7424fF1a14F1374f75A1C940e93963810277A610",
+  "deployer": "0x42F4D5eD7b5da3E12a01485CA7E5663879b59aD5",
+  "exchange": "0x1964C32f0bE608E7D29302AFF5E61268E72080cc",
+  "maxOracleAge": 120,
+  "minBond": 50000000,
+  "minHorizon": 60,
+  "name": "staging",
+  "settlerV1": "0xDbBFf07B8F27BE1495A13186c194e0bA6479B95C"
+}
