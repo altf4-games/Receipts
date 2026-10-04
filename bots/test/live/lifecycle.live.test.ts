@@ -25,12 +25,13 @@ function fresh() {
 }
 
 const openIds = async (ctx: ReturnType<typeof fresh>["ctx"], bots: ReturnType<typeof fresh>["bots"]) => {
-  const ids: { handle: string; perpId: bigint; id: bigint; curator: Address }[] = [];
-  for (const b of bots) for (const perpId of b.spec.markets) {
-    const id = (await ctx.pc.readContract({ address: ctx.deployment.callRegistry, abi: callAbi as Abi, functionName: "openCallId", args: [b.signer.account.address, perpId] })) as bigint;
-    ids.push({ handle: b.spec.handle, perpId, id, curator: b.signer.account.address });
-  }
-  return ids;
+  // one Multicall3 eth_call for all pairs: the public RPC rate-limits to ~15 calls/s, so a burst of 12 reads fails
+  const pairs = bots.flatMap((b) => b.spec.markets.map((perpId) => ({ b, perpId })));
+  const res = (await ctx.pc.multicall({
+    allowFailure: false,
+    contracts: pairs.map(({ b, perpId }) => ({ address: ctx.deployment.callRegistry, abi: callAbi as Abi, functionName: "openCallId", args: [b.address, perpId] })),
+  } as never)) as unknown as bigint[];
+  return pairs.map(({ b, perpId }, i) => ({ handle: b.spec.handle, perpId, id: res[i], curator: b.address as Address }));
 };
 
 describe.sequential("BOTS live lifecycle on staging (stateless ticks)", () => {
@@ -102,7 +103,7 @@ describe.sequential("BOTS live lifecycle on staging (stateless ticks)", () => {
   test("bots are labelled isBot on-chain and carry the bot: prefix", async () => {
     const { ctx, bots } = fresh();
     for (const b of bots) {
-      const cur = (await ctx.pc.readContract({ address: ctx.deployment.curatorRegistry, abi: (await import("../../src/abi/CuratorRegistry.json", { with: { type: "json" } })).default as Abi, functionName: "getCurator", args: [b.signer.account.address] })) as { isBot: boolean; handle: string; registered: boolean };
+      const cur = (await ctx.pc.readContract({ address: ctx.deployment.curatorRegistry, abi: (await import("../../src/abi/CuratorRegistry.json", { with: { type: "json" } })).default as Abi, functionName: "getCurator", args: [b.address] })) as { isBot: boolean; handle: string; registered: boolean };
       expect(cur.registered).toBe(true);
       expect(cur.isBot).toBe(true);
       expect(cur.handle.startsWith("bot:")).toBe(true);

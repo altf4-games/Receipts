@@ -20,11 +20,17 @@ const addr = (n: number) => ("0x" + n.toString(16).padStart(40, "0")) as Address
 
 function setup(opts: { cap: number; calls: Record<string, Partial<Call>>; forceCommit?: boolean }) {
   const sent: string[] = [];
+  const multicalls: number[] = [];
   const coinflip = BOTS.find((b) => b.strategy === "coinflip")!;
   const specs = [{ ...coinflip, handle: "bot:coinflip", markets: [16n, 32n] }, { ...coinflip, handle: "bot:coinflip2", markets: [16n] }];
+  const signersBuilt: string[] = [];
   const bots: BotRuntime[] = specs.map((spec, i) => ({
     spec,
-    signer: { account: { address: addr(100 + i) } as never, client: { chain: {}, writeContract: async (a: { functionName: string; args: unknown[] }) => { sent.push(a.functionName); return ("0x" + sent.length.toString(16).padStart(64, "0")) as Hex; } } as never },
+    address: addr(100 + i),
+    getSigner: () => {
+      signersBuilt.push(spec.handle);
+      return { account: { address: addr(100 + i) } as never, client: { chain: {}, writeContract: async (a: { functionName: string; args: unknown[] }) => { sent.push(a.functionName); return ("0x" + sent.length.toString(16).padStart(64, "0")) as Hex; } } as never };
+    },
   }));
   const openId: Record<string, bigint> = {};
   let nextId = 1n;
@@ -39,16 +45,24 @@ function setup(opts: { cap: number; calls: Record<string, Partial<Call>>; forceC
       }
       throw new Error("unexpected read " + a.functionName);
     },
+    multicall: async (a: { contracts: { functionName: string; args: unknown[] }[] }) => {
+      multicalls.push(a.contracts.length);
+      return Promise.all(a.contracts.map(async (c) => ({ status: "success", result: await (pc as { readContract: (x: unknown) => Promise<unknown> }).readContract(c) })));
+    },
     estimateContractGas: async () => 100_000n,
     waitForTransactionReceipt: async () => ({ status: "success", blockNumber: 1n }),
     call: async () => ({ data: ("0x" + "00".repeat(32) + "00".repeat(32 * 15) + (1_800_000_100n).toString(16).padStart(64, "0") + (1_800_000_100n).toString(16).padStart(64, "0")) as Hex }),
   };
   const ctx: Ctx = {
     pc: pc as never, deployment: D, perplApi: "http://unused", masterSecret: MASTER,
-    keeper: { account: { address: addr(1) } as never, client: { chain: {}, writeContract: async (a: { functionName: string }) => { sent.push(a.functionName); return ("0x" + sent.length.toString(16).padStart(64, "0")) as Hex; } } as never },
+    keeperAddress: addr(1),
+    getKeeper: () => {
+      signersBuilt.push("keeper");
+      return { account: { address: addr(1) } as never, client: { chain: {}, writeContract: async (a: { functionName: string }) => { sent.push(a.functionName); return ("0x" + sent.length.toString(16).padStart(64, "0")) as Hex; } } as never };
+    },
     nowSec: () => NOW, log: () => {}, maxTxPerTick: opts.cap, opts: { forceCommit: opts.forceCommit ?? false },
   };
-  return { ctx, bots, sent };
+  return { ctx, bots, sent, signersBuilt, multicalls };
 }
 
 /** a Sealed call whose hash matches what bot:coinflip would have committed (so recovery succeeds) */
@@ -60,7 +74,7 @@ function sealedFor(bot: string, curator: Address, perpId: bigint, horizonSecs: n
 describe("per-tick budget goes to deadline-sensitive work first", () => {
   test("cap 1: an overdue reveal is sent, the forced commit on a free pair is deferred", async () => {
     const s = setup({ cap: 1, forceCommit: true, calls: {} });
-    const bot0 = s.bots[0].signer.account.address;
+    const bot0 = s.bots[0].address;
     // bot0 / market 16 holds a Sealed call that is past half its horizon (reveal due); market 32 and bot1/16 are free
     s.ctx.pc = ((): never => {
       const base = setup({ cap: 1, forceCommit: true, calls: { [`${bot0.toLowerCase()}:16`]: sealedFor("bot:coinflip", bot0, 16n, 3600) } });
@@ -73,7 +87,7 @@ describe("per-tick budget goes to deadline-sensitive work first", () => {
 
   test("cap 2: reveal first, then the settle-free tick spends the remainder on a commit", async () => {
     const s = setup({ cap: 2, forceCommit: true, calls: {} });
-    const bot0 = s.bots[0].signer.account.address;
+    const bot0 = s.bots[0].address;
     s.ctx.pc = setup({ cap: 2, forceCommit: true, calls: { [`${bot0.toLowerCase()}:16`]: sealedFor("bot:coinflip", bot0, 16n, 3600) } }).ctx.pc as never;
     await tickAll(s.ctx, s.bots);
     expect(s.sent[0]).toBe("reveal");
@@ -83,7 +97,7 @@ describe("per-tick budget goes to deadline-sensitive work first", () => {
 
   test("an overdue unrevealed call is expired before any commit", async () => {
     const s = setup({ cap: 1, forceCommit: true, calls: {} });
-    const bot0 = s.bots[0].signer.account.address;
+    const bot0 = s.bots[0].address;
     s.ctx.pc = setup({ cap: 1, forceCommit: true, calls: { [`${bot0.toLowerCase()}:16`]: { ...sealedFor("bot:coinflip", bot0, 16n, 3600), horizonEnd: NOW - 1n } } }).ctx.pc as never;
     await tickAll(s.ctx, s.bots);
     expect(s.sent).toEqual(["expire"]);
@@ -91,10 +105,41 @@ describe("per-tick budget goes to deadline-sensitive work first", () => {
 
   test("without a cap problem (cap 10) everything still happens: reveal + commits", async () => {
     const s = setup({ cap: 10, forceCommit: true, calls: {} });
-    const bot0 = s.bots[0].signer.account.address;
+    const bot0 = s.bots[0].address;
     s.ctx.pc = setup({ cap: 10, forceCommit: true, calls: { [`${bot0.toLowerCase()}:16`]: sealedFor("bot:coinflip", bot0, 16n, 3600) } }).ctx.pc as never;
     await tickAll(s.ctx, s.bots);
     expect(s.sent.filter((x) => x === "reveal")).toHaveLength(1);
     expect(s.sent.filter((x) => x === "commit")).toHaveLength(2); // bot0/32 and bot1/16 are free
   });
+
+  test("an IDLE tick (nothing due, nobody in a commit window) builds no signer at all and sends nothing (cheap on a cold isolate)", async () => {
+    const s = setup({ cap: 3, forceCommit: false, calls: {} });
+    s.ctx.cadence = { periodSecs: 3600, windowSecs: 0 }; // no pair is in its commit window
+    await tickAll(s.ctx, s.bots);
+    expect(s.sent).toEqual([]);
+    expect(s.signersBuilt).toEqual([]); // no account creation = no ~11 ms cold-start CPU
+  });
+
+  test("the scan is ONE multicall for all pairs (+ one more for open calls), not one request per pair", async () => {
+    const s = setup({ cap: 3, forceCommit: false, calls: {} });
+    s.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
+    await tickAll(s.ctx, s.bots);
+    expect(s.multicalls).toEqual([3]); // 2 bots x markets (2 + 1) = 3 reads, a single multicall; no open calls => no second one
+    const bot0 = s.bots[0].address;
+    const t = setup({ cap: 3, forceCommit: false, calls: { [`${bot0.toLowerCase()}:16`]: sealedFor("bot:coinflip", bot0, 16n, 3600) } });
+    t.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
+    await tickAll(t.ctx, t.bots);
+    expect(t.multicalls).toEqual([3, 1]); // pairs, then the one open call
+  });
+
+  test("a signer is built only for the wallet that actually sends (keeper for a reveal, not the bots)", async () => {
+    const s = setup({ cap: 1, forceCommit: false, calls: {} });
+    s.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
+    const bot0 = s.bots[0].address;
+    s.ctx.pc = setup({ cap: 1, forceCommit: false, calls: { [`${bot0.toLowerCase()}:16`]: sealedFor("bot:coinflip", bot0, 16n, 3600) } }).ctx.pc as never;
+    await tickAll(s.ctx, s.bots);
+    expect(s.sent).toEqual(["reveal"]);
+    expect(s.signersBuilt).toEqual(["keeper"]);
+  });
 });
+
