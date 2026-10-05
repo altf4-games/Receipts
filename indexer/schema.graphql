@@ -1,0 +1,206 @@
+# Receipts indexer schema. Entities are per chain (config: disable_default_cross_chain).
+# Raw entities mirror contract events; the "Stats" and "Day" entities are DERIVED aggregates maintained by the handlers.
+
+enum CallStatus {
+  SEALED
+  REVEALED
+  SETTLED
+  EXPIRED
+  INVALID
+}
+
+type Curator {
+  id: ID! # curator address, lowercase
+  handle: String!
+  isBot: Boolean!
+  bond: BigInt!
+  registeredBlock: Int!
+  registeredAt: Int!
+  metadataURI: String!
+  linkedWallets: [String!]!
+  perplAccountId: BigInt # Perpl account of this address (testnet), when it has one
+  calls: [Call!]! @derivedFrom(field: "curator")
+}
+
+type Call {
+  id: ID! # callId
+  callId: Int!
+  curator: Curator!
+  perpId: Int!
+  status: CallStatus!
+  hash: String!
+  horizonSecs: Int!
+  commitBlock: Int!
+  commitTime: Int!
+  horizonEnd: Int!
+  entryPNS: BigInt! # Perpl oracle price snapshotted inside commit()
+  entryOracleTs: Int!
+  priceDecimals: Int!
+  direction: Int # 1 long, 2 short; known after reveal
+  tpBps: Int
+  slBps: Int
+  revealBlock: Int
+  revealTime: Int
+  scoreBps: Int
+  flags: Int
+  closeBlock: Int
+  closeTime: Int
+  settler: String
+  pathScored: Boolean! # scored from the CRE price tape (SettlerV2) rather than the end price only
+  disputed: Boolean!
+  exitPNS: BigInt # SettlerV1 only
+  exitOracleTs: Int # SettlerV1 only
+  # "skin in the game": Perpl positions the curator opened on this market while the call was open
+  perplTrades: Int!
+  perplLongLots: BigInt!
+  perplShortLots: BigInt!
+}
+
+# One row per curator: a running scoreboard updated on every commit and close.
+type CuratorStats {
+  id: ID! # curator address
+  curator: Curator!
+  calls: Int!
+  settled: Int!
+  expired: Int! # never revealed: scores the maximum-loss penalty
+  invalid: Int!
+  wins: Int!
+  losses: Int!
+  sumScoreBps: Int!
+  sumSqScoreBps: BigInt! # for variance / confidence bounds in the rankers
+  bestBps: Int!
+  worstBps: Int!
+  equityBps: Int! # cumulative score in close order
+  peakEquityBps: Int!
+  maxDrawdownBps: Int! # largest peak-to-trough fall of equityBps
+  firstCommitTime: Int!
+  lastCloseTime: Int!
+}
+
+type MarketStats {
+  id: ID! # perpId
+  perpId: Int!
+  calls: Int!
+  longs: Int!
+  shorts: Int!
+  settled: Int!
+  expired: Int!
+  wins: Int!
+  sumScoreBps: Int!
+  tapeSamples: Int!
+  lastOraclePrice: BigInt
+  lastOracleTs: Int
+}
+
+type OpenSlot {
+  id: ID! # curator-perpId: the curator's currently open call on that market
+  callId: Int!
+}
+
+type SettlementProposal {
+  id: ID! # callId
+  index: Int!
+  touch: Boolean!
+  scoreBps: Int!
+  proposedBy: String!
+  proposedAt: Int!
+  disputed: Boolean!
+  finalized: Boolean!
+}
+
+type TapeSample {
+  id: ID! # perpId-index
+  perpId: Int!
+  index: Int!
+  oracleTs: Int!
+  price: BigInt!
+  writer: String!
+  block: Int!
+}
+
+type CrossCheck {
+  id: ID! # block-logIndex
+  perpId: Int!
+  oraclePrice: BigInt!
+  restPrice: BigInt! # 0 when Perpl's REST API was unavailable
+  divergenceBps: Int!
+  block: Int!
+}
+
+type Subscription {
+  id: ID! # curator-subscriber
+  curator: String!
+  subscriber: String!
+  rate: BigInt!
+  totalDeposited: BigInt!
+  totalRefunded: BigInt!
+  totalPaidOnCancel: BigInt!
+  start: Int!
+  activeUntil: Int!
+  payments: Int!
+}
+
+type CuratorRevenue {
+  id: ID! # curator address
+  rate: BigInt!
+  subscribers: Int!
+  totalDeposited: BigInt!
+  totalRefunded: BigInt!
+  claimed: BigInt!
+}
+
+type PerplAccount {
+  id: ID! # Perpl accountId
+  address: String!
+}
+
+type PerplAddress {
+  id: ID! # address, lowercase
+  accountId: BigInt!
+}
+
+# One row per curator Perpl position opened while one of their calls was open.
+type PerplCuratorTrade {
+  id: ID! # block-logIndex
+  curator: Curator!
+  callId: Int!
+  perpId: Int!
+  positionType: Int! # Perpl: 0 long, 1 short
+  lotLNS: BigInt!
+  pricePNS: BigInt!
+  block: Int!
+  blocksSinceCommit: Int!
+}
+
+# Daily opened-position analytics per Perpl market (creative use of the Exchange's own events, both chains).
+type PerplMarketDay {
+  id: ID! # perpId-day
+  perpId: Int!
+  day: Int! # unix day
+  opens: Int!
+  longOpens: Int!
+  shortOpens: Int!
+  notionalMicroUsd: BigInt! # sum of lot x price, in AUSD micro-units
+}
+
+# Open ranking algorithms: each has a permanent receipt (author, code location, git commit).
+type Ranker {
+  id: ID! # rankerId
+  author: String!
+  name: String!
+  codeURI: String!
+  gitCommit: String!
+  registeredBlock: Int!
+  registeredAt: Int!
+  lastPublishedRoot: String
+  lastPublishedAsOfBlock: Int
+}
+
+# The registry's active settler over time: SettlerV1 -> SettlerV2 after the timelock.
+type SettlerChange {
+  id: ID! # block-logIndex
+  oldSettler: String!
+  newSettler: String!
+  block: Int!
+  timestamp: Int!
+}

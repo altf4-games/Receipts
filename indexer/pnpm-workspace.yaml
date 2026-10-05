@@ -1,0 +1,5 @@
+# The indexer is its own project (Envio Cloud builds this folder alone with pnpm), not a member of the monorepo workspace.
+allowBuilds:
+  esbuild: true
+onlyBuiltDependencies:
+  - esbuild

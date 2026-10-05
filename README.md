@@ -6,7 +6,7 @@ Receipts is a paid curation feed for market calls whose track record cannot be f
 
 Entered in the **Social, Attention & Culture** track of Monad Metropolis (2026).
 
-> **Status: work in progress.** Deployed and verified on Monad testnet: the registries, SettlerV1 and Subscriptions. Running: four labelled bot curators (Cloudflare Workers) and a Next.js app at https://receipts-app-rho-ashy.vercel.app with a live feed, per-second subscriptions and in-browser verification. Built and tested on testnet but not yet the active settler on production: the Chainlink CRE price tape and SettlerV2 (activation after a 6-hour timelock). Not built yet: the indexer and the rankers. This README is filled in as each piece ships, with transaction hashes and addresses that can be read live.
+> **Status: work in progress.** Deployed and verified on Monad testnet: the registries, SettlerV1 and Subscriptions. Running: four labelled bot curators (Cloudflare Workers) and a Next.js app at https://receipts-app-rho-ashy.vercel.app with a live feed, per-second subscriptions and in-browser verification. Built and tested on testnet but not yet the active settler on production: the Chainlink CRE price tape and SettlerV2 (activation after a 6-hour timelock). Also built: an Envio indexer (Monad testnet and mainnet) and open ranker algorithms with an onchain registry. Not built yet: Nansen integration and the mainnet cross-chain flow. This README is filled in as each piece ships, with transaction hashes and addresses that can be read live.
 
 ## Deployed contracts (Monad testnet, chain 10143)
 
@@ -18,6 +18,7 @@ Entered in the **Social, Attention & Culture** track of Monad Metropolis (2026).
 | Subscriptions (per-second AUSD streams) | `0xcbDFf5C6f618dEA573a4B0FE000AF712F85D661e` | Sourcify `exact_match` |
 | PriceTape (oracle samples written via Chainlink CRE) | `0xC028FCBE295bFA67bD1aA17e1f467214cE0Bf814` | Sourcify `exact_match` |
 | SettlerV2 (path-aware, disputable; timelock proposed) | `0xBdCF5A34a13617f62FFB9d3155dF3fA2939e73Dc` | Sourcify `exact_match` |
+| RankerRegistry (receipts for ranking algorithms) | `0xc1936e5Ce100B7801fffBe99339F1757A3049581` | Sourcify `exact_match` |
 
 Parameters: minimum horizon 15 min, maximum 7 days, take-profit cap 30%, stop-loss cap 15%, unrevealed-call penalty −30%, bond 50 AUSD, oracle age limit 120 s, settler-rotation timelock 6 h. A separate staging deployment (60 s minimum horizon) exists for live tests; its addresses are in `deployments/`.
 
@@ -53,6 +54,12 @@ Honest limits:
 - **The CRE workflow runs as a CLI simulation with broadcast, not as a deployed workflow.** Deployment needs a commercial arrangement with Chainlink that I did not pursue. The simulation sends real transactions through Chainlink's `MockKeystoneForwarder`, which does not verify DON signatures; this is why nothing in the design depends on authenticating the workflow.
 - **Path resolution is the tape's density.** A touch between two samples is invisible, and the first sample at or after the horizon can lag the horizon (flagged when more than 180 s).
 - **SettlerV2 on production becomes the registry's settler only after a 6-hour timelock** that I proposed on 5 Oct 2026; calls already settled by SettlerV1 stay final.
+
+## Indexer and open rankers
+
+`indexer/` is an Envio HyperIndex project covering the Receipts contracts on Monad testnet and Perpl's Exchange on testnet and mainnet. It derives per-curator scoreboards (equity curve, max drawdown, sums for confidence bounds), per-market stats, subscription revenue and daily Perpl analytics, and it flags a curator's own Perpl positions opened while a call was open. I check it against the chain with a live test that pins one block, waits for the indexer to reach it and compares every row (see `indexer/README.md`).
+
+`rankers/` holds the ranking algorithms as pure functions (`raw`, `mean-per-call`, `luck-adjusted`, `hit-rate-wilson`). A ranker is registered on chain with its code location and git commit, so anyone can rerun the exact code. The README there reports a coin-flip simulation, including the case where the luck-adjusted rule does *not* beat plain summing.
 
 ## Layout
 

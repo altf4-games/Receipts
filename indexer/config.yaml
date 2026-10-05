@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=./node_modules/envio/evm.schema.json
+name: receipts-indexer
+description: >-
+  Receipts: sealed market calls on Monad (Monad testnet 10143 + mainnet 143). Indexes the Receipts contracts
+  (curators, calls, settlement, price tape, subscriptions) and Perpl's Exchange (accounts and opened positions) so the
+  app and the ranker algorithms read one GraphQL endpoint.
+# Entities are per chain: the same id on two chains is two independent rows (multichain-safe).
+disable_default_cross_chain: true
+
+contracts:
+  - name: CuratorRegistry
+    events:
+      - event: "Registered(address indexed curator, string handle, bool isBot, uint256 bond)"
+      - event: "BondAdded(address indexed curator, uint256 amount, uint256 newBond)"
+      - event: "IdentityLinked(address indexed curator, address indexed wallet, uint256 nonce)"
+      - event: "IdentityUnlinked(address indexed curator, address indexed wallet)"
+      - event: "MetadataUpdated(address indexed curator, string metadataURI)"
+  - name: CallRegistry
+    events:
+      - event: "Committed(uint256 indexed callId, address indexed curator, uint256 indexed perpId, bytes32 hash, uint32 horizonSecs, uint64 commitBlock, uint64 commitTime, uint64 horizonEnd, uint128 entryPNS, uint64 entryOracleTs, uint8 priceDecimals)"
+      - event: "Revealed(uint256 indexed callId, uint8 direction, uint16 tpBps, uint16 slBps, bool valid)"
+      - event: "Expired(uint256 indexed callId)"
+      - event: "Closed(uint256 indexed callId, int32 scoreBps, uint16 flags, address settler)"
+      - event: "SettlerChanged(address indexed oldSettler, address indexed newSettler)"
+  - name: SettlerV1
+    events:
+      - event: "Settled(uint256 indexed callId, uint128 entryPNS, uint128 exitPNS, uint64 exitOracleTs, int256 rawBps, int32 scoreBps, uint16 flags)"
+  - name: SettlerV2
+    events:
+      - event: "Proposed(uint256 indexed callId, uint32 index, bool touch, int32 scoreBps, address indexed by)"
+      - event: "Disputed(uint256 indexed callId, uint32 oldIndex, uint32 newIndex, int32 scoreBps, address indexed by)"
+      - event: "Finalized(uint256 indexed callId, int32 scoreBps, uint16 flags)"
+  - name: PriceTape
+    events:
+      - event: "Sampled(uint256 indexed perpId, uint256 indexed index, uint64 oracleTs, uint128 price, address indexed writer)"
+      - event: "CrossCheck(uint256 indexed perpId, uint128 oraclePrice, uint128 restPrice, uint256 divergenceBps)"
+  - name: Subscriptions
+    events:
+      - event: "RateSet(address indexed curator, uint128 ratePerSec)"
+      - event: "Subscribed(address indexed subscriber, address indexed curator, address indexed payer, uint256 amount, uint128 rate, uint64 start, uint64 activeUntil)"
+      - event: "Cancelled(address indexed subscriber, address indexed curator, uint256 refunded, uint256 paidToCurator)"
+      - event: "Claimed(address indexed curator, uint256 amount)"
+  # Perpl's Exchange appears twice with different start blocks: account creation is rare and must be read from the
+  # beginning to link a curator's wallet to its Perpl account; position opens are high volume and only matter from the
+  # day Receipts started (the Envio free plan soft-limits an indexer at 100k events).
+  - name: RankerRegistry
+    events:
+      - event: "RankerRegistered(uint256 indexed rankerId, address indexed author, string name, string codeURI, bytes20 gitCommit)"
+      - event: "RankingPublished(uint256 indexed rankerId, bytes32 merkleRoot, uint64 asOfBlock, address indexed by)"
+  - name: PerplAccounts
+    events:
+      - event: "AccountCreated(address account, uint256 id)"
+  - name: PerplTrades
+    events:
+      - event: "PositionOpened(uint256 perpId, uint256 accountId, uint8 positionType, uint256 leverageHdths, uint256 depositCNS, int256 pnlCollateralizedCNS, uint256 pricePNS, uint256 lotLNS, uint256 insFeeCNS, uint256 protFeeCNS)"
+        name: PositionOpened
+      - event: "PositionOpenedV2(uint256 perpId, uint256 accountId, uint8 positionType, uint256 leverageHdths, uint256 depositCNS, int256 pnlCollateralizedCNS, uint256 pricePNS, uint256 lotLNS, uint256 insFeeCNS, uint256 protFeeCNS, uint256 priceResiduePNSQ16)"
+        name: PositionOpenedV2
+
+chains:
+  # Monad testnet: the live Receipts deployment (deployments/production.json) + the Perpl testnet Exchange
+  - id: 10143
+    start_block: 0 # per-contract start blocks below (a contract cannot start before its chain)
+    contracts:
+      - name: CuratorRegistry
+        address: "0x1e917319c379fd4e62Bf3207379E3d8bb1A468AF"
+        start_block: 68120309
+      - name: CallRegistry
+        address: "0x1E9b6c2e6484CcbeA63F4567905012a28Fa1753C"
+        start_block: 68120309
+      - name: SettlerV1
+        address: "0xF39358B88cF73a1d9158f00b9D5E39A04543E03f"
+        start_block: 68120309
+      - name: Subscriptions
+        address: "0xcbDFf5C6f618dEA573a4B0FE000AF712F85D661e"
+        start_block: 68317022
+      - name: SettlerV2
+        address: "0xBdCF5A34a13617f62FFB9d3155dF3fA2939e73Dc"
+        start_block: 68366390
+      - name: PriceTape
+        address: "0xC028FCBE295bFA67bD1aA17e1f467214cE0Bf814"
+        start_block: 68366386
+      - name: RankerRegistry
+        address: "0xc1936e5Ce100B7801fffBe99339F1757A3049581"
+        start_block: 68395136
+      - name: PerplAccounts
+        address: "0x1964C32f0bE608E7D29302AFF5E61268E72080cc"
+        start_block: 0
+      - name: PerplTrades
+        address: "0x1964C32f0bE608E7D29302AFF5E61268E72080cc"
+        start_block: 68120309
+  # Monad mainnet: Perpl's real Exchange (no Receipts contracts there yet: the mainnet Aurora flow is a stretch goal).
+  # Market-level analytics only (no Receipts curators exist on mainnet, so no account linking is needed here).
+  - id: 143
+    start_block: latest
+    contracts:
+      - name: PerplTrades
+        address: "0x34B6552d57a35a1D042CcAe1951BD1C370112a6F"

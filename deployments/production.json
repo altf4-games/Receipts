@@ -15,5 +15,6 @@
   "priceTape": "0xC028FCBE295bFA67bD1aA17e1f467214cE0Bf814",
   "settlerV2": "0xBdCF5A34a13617f62FFB9d3155dF3fA2939e73Dc",
   "creForwarder": "0xB9F79d863261869B234c481D1f9A7af84AeAd192",
-  "disputeWindow": 900
+  "disputeWindow": 900,
+  "rankerRegistry": "0xc1936e5Ce100B7801fffBe99339F1757A3049581"
 }
