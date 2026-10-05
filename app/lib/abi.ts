@@ -56,3 +56,16 @@ export const settlerV2Abi = [
     outputs: [{ name: "proposedAt", type: "uint64" }, { name: "index", type: "uint32" }, { name: "scoreBps", type: "int32" }, { name: "touch", type: "bool" }, { name: "disputed", type: "bool" }, { name: "finalized", type: "bool" }],
   },
 ] as const;
+
+export const settlerV2WriteAbi = [
+  { type: "function", name: "dispute", stateMutability: "nonpayable", inputs: [{ name: "callId", type: "uint256" }, { name: "earlierIndex", type: "uint32" }], outputs: [] },
+  { type: "function", name: "finalize", stateMutability: "nonpayable", inputs: [{ name: "callId", type: "uint256" }], outputs: [] },
+  { type: "error", name: "NoProposal", inputs: [{ name: "callId", type: "uint256" }] },
+  { type: "error", name: "AlreadyFinalized", inputs: [{ name: "callId", type: "uint256" }] },
+  { type: "error", name: "WindowOpen", inputs: [{ name: "until", type: "uint64" }] },
+  { type: "error", name: "WindowClosed", inputs: [{ name: "closedAt", type: "uint64" }] },
+  { type: "error", name: "NotATouch", inputs: [{ name: "index", type: "uint256" }] },
+  { type: "error", name: "NotEarlier", inputs: [{ name: "current", type: "uint32" }, { name: "given", type: "uint32" }] },
+  { type: "error", name: "SampleOutsidePath", inputs: [{ name: "ts", type: "uint64" }, { name: "from", type: "uint64" }, { name: "to", type: "uint64" }] },
+  { type: "error", name: "NoSuchSample", inputs: [{ name: "index", type: "uint256" }, { name: "count", type: "uint256" }] },
+] as const;

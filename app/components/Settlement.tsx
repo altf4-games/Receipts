@@ -1,5 +1,6 @@
 import { TAPE } from "@/lib/config";
 import type { CallView } from "@/lib/calls";
+import { DisputeActions } from "./DisputeActions";
 import type { TapeView } from "@/lib/tape";
 
 const pct = (bps: number) => `${bps > 0 ? "+" : ""}${(bps / 100).toFixed(2)}%`;
@@ -39,6 +40,9 @@ export function Settlement({ c, tape }: { c: CallView; tape: TapeView | null }) 
   }
 
   const prop = tape?.proposal ?? null;
+  // earliest sample before the proposal that already touched TP or SL: the one a challenger would point at
+  const touches = (price: number) => !!dir && ((dir === "LONG" && ((tp !== null && price >= tp) || (sl !== null && price <= sl))) || (dir === "SHORT" && ((tp !== null && price <= tp) || (sl !== null && price >= sl))));
+  const candidate = prop ? pts.find((p) => p.index < prop.index && p.ts >= c.entryOracleTs && p.ts < c.horizonEnd && touches(p.price))?.index ?? null : null;
   const windowEnd = prop ? prop.proposedAt + TAPE.disputeWindow : 0;
   return (
     <section className="slip mt-4" aria-label="Settlement">
@@ -53,6 +57,7 @@ export function Settlement({ c, tape }: { c: CallView; tape: TapeView | null }) 
           {prop.finalized ? "Finalised." : prop.disputed ? "Disputed once, new proposal stands." : `Anyone can dispute with an earlier sample until ${new Date(windowEnd * 1000).toISOString().slice(11, 19)}Z.`}
         </p>
       )}
+      {c.status === "Revealed" && prop && <DisputeActions callId={c.id} windowEnd={windowEnd} finalized={prop.finalized} candidate={candidate} />}
       {c.status === "Sealed" && <p className="text-sm">Sealed. The call is hidden until the curator reveals it, so TP/SL levels are not shown yet. An unrevealed call expires at -30.00%.</p>}
       {(c.status === "Expired" || c.status === "Invalid") && <p className="text-sm">No settlement: the call was never validly revealed, so it carries the fixed penalty.</p>}
       {chart}

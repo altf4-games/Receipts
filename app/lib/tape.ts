@@ -3,7 +3,7 @@ import { priceTapeAbi, settlerV2Abi } from "./abi";
 import { TAPE } from "./config";
 import type { CallView } from "./calls";
 
-export type TapePoint = { ts: number; price: number };
+export type TapePoint = { index: number; ts: number; price: number };
 export type TapeView = {
   points: TapePoint[]; // samples from the commit to the end of the window, oracle timestamps, display floats
   totalInWindow: number;
@@ -27,7 +27,7 @@ export async function getTape(c: CallView, decimals: number): Promise<TapeView> 
   const d = 10 ** decimals;
   const p = await client.readContract({ address: TAPE.settlerV2, abi: settlerV2Abi, functionName: "proposals", args: [BigInt(c.id)] });
   return {
-    points: inWin.map((r) => ({ ts: Number(r.ts), price: Number(r.price) / d })),
+    points: inWin.map((r, k) => ({ index: Number(idxs[k]), ts: Number(r.ts), price: Number(r.price) / d })),
     totalInWindow: inWin.length,
     decimals,
     proposal: p[0] === BigInt(0) ? null : { proposedAt: Number(p[0]), index: p[1], scoreBps: p[2], touch: p[3], disputed: p[4], finalized: p[5] },
