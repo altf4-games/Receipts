@@ -45,7 +45,7 @@ export function clients(account?: Address) {
 export function humanError(e: unknown): string {
   const err = e as { code?: number; shortMessage?: string; message?: string };
   if (err.code === 4001 || /user rejected|denied/i.test(err.message ?? "")) return "You declined the request in your wallet.";
-  if (/insufficient funds/i.test(err.message ?? "")) return "Not enough MON for gas. Use the MON faucet link below.";
+  if (/insufficient funds|insufficient balance|signer had insufficient/i.test(err.message ?? "")) return "Not enough MON for gas. Use the MON faucet link below.";
   if (/exceeds balance|transfer amount exceeds/i.test(err.message ?? "")) return "Not enough AUSD. Use the Get 10,000 test AUSD button below.";
   if (/NotAccepting/.test(err.message ?? "")) return "This curator is not accepting subscribers.";
   return err.shortMessage ?? err.message?.split("\n")[0] ?? "Something went wrong.";
