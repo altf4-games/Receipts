@@ -5,6 +5,8 @@ import { parseAbi, toHex, type Address, type Hex } from "viem";
 import { callRegistryAbi, erc20Abi, subscriptionsAbi } from "@/lib/abi";
 import { DEPLOYMENTS, EXPLORER, MARKETS, type DeploymentName } from "@/lib/config";
 import { hashPlain, type Plain } from "@/lib/hash";
+import { SealTracker } from "@/components/SealTracker";
+import { startHeads } from "@/lib/heads";
 import { clients, connect, humanError, monad } from "@/lib/wallet";
 
 const curatorAbi = parseAbi([
@@ -40,6 +42,7 @@ export function NewCall({ dep }: { dep: DeploymentName }) {
   const [error, setError] = useState<string | null>(null);
   const [txs, setTxs] = useState<Hex[]>([]);
   const [saved, setSaved] = useState<Saved[]>([]);
+  const [seal, setSeal] = useState<{ hash: Hex; t0: number } | null>(null);
   // form
   const [newHandle, setNewHandle] = useState("");
   const [price, setPrice] = useState("5");
@@ -68,16 +71,17 @@ export function NewCall({ dep }: { dep: DeploymentName }) {
     setBusy(label); setError(null);
     try { await fn(); } catch (e) { setError(humanError(e)); } finally { setBusy(null); }
   };
-  const send = async (address: Address, abi: unknown, functionName: string, args: unknown[]) => {
+  const send = async (address: Address, abi: unknown, functionName: string, args: unknown[], onHash?: (h: Hex, t0: number) => void) => {
     const { pub, wallet } = clients(acct!);
     const hash = await wallet.writeContract({ address, abi, functionName, args, account: acct!, chain: monad } as never);
+    onHash?.(hash, Date.now());
     const r = await pub.waitForTransactionReceipt({ hash });
     setTxs((t) => [...t, hash]);
     if (r.status !== "success") throw new Error("The transaction reverted.");
     return hash;
   };
 
-  const onConnect = () => run("Connecting", async () => setAcct(await connect()));
+  const onConnect = () => run("Connecting", async () => { startHeads(); setAcct(await connect()); });
 
   const onRegister = () => run("Registering", async () => {
     const h = newHandle.trim();
@@ -112,7 +116,7 @@ export function NewCall({ dep }: { dep: DeploymentName }) {
     // keep the secret BEFORE sending: if the tab dies after the tx, the call can still be revealed
     const pending: Saved = { callId: 0, plain };
     writeSaved(dep, acct!, [...readSaved(dep, acct!), pending]);
-    await send(A.callRegistry, registryExtra, "commit", [BigInt(perp), hash, plain.horizonSecs]);
+    await send(A.callRegistry, registryExtra, "commit", [BigInt(perp), hash, plain.horizonSecs], (h, t0) => setSeal({ hash: h, t0 }));
     const id = Number(await pub.readContract({ address: A.callRegistry, abi: registryExtra, functionName: "openCallId", args: [acct!, BigInt(perp)] }));
     writeSaved(dep, acct!, readSaved(dep, acct!).map((s) => (s === pending || (s.callId === 0 && s.plain.salt === plain.salt) ? { ...s, callId: id } : s)));
     const up = await fetch(`/api/calls?deployment=${dep}`, { method: "POST", body: JSON.stringify({ callId: id, ...plain }) });
@@ -192,6 +196,7 @@ export function NewCall({ dep }: { dep: DeploymentName }) {
               )}
             </div>
           )}
+          {seal && <SealTracker hash={seal.hash} t0={seal.t0} />}
           {busy && <div className="mt-3 dim">{busy}… confirm in your wallet if asked.</div>}
           {error && <div role="alert" className="mt-3" style={{ color: "var(--stamp-red)" }}>{error}</div>}
           {txs.map((t) => <div key={t} className="mt-1 break-all text-xs dim"><a className="underline" href={`${EXPLORER}/tx/${t}`}>tx {t}</a></div>)}

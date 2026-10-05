@@ -52,7 +52,7 @@ async function readRaw(dep: DeploymentName, id: bigint) {
 }
 
 const handleCache = new Map<string, { handle: string; isBot: boolean }>();
-async function curatorInfo(dep: DeploymentName, a: Address) {
+export async function curatorInfo(dep: DeploymentName, a: Address) {
   const hit = handleCache.get(dep + a);
   if (hit) return hit;
   const c = await client.readContract({ address: DEPLOYMENTS[dep].curatorRegistry, abi: curatorRegistryAbi, functionName: "getCurator", args: [a] });

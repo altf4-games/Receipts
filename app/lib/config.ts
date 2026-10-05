@@ -26,3 +26,6 @@ export const DEPLOYMENTS = {
   },
 } as const;
 export type DeploymentName = keyof typeof DEPLOYMENTS;
+
+/** First block of each Subscriptions deployment: where the event scanner starts. */
+export const SUBS_DEPLOY_BLOCK: Record<DeploymentName, number> = { production: 68317022, staging: 68316433 };

@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { IBM_Plex_Mono } from "next/font/google";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import "./globals.css";
 
 const plex = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500", "700"] });
 
+const site = process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(site),
   title: "Receipts",
   description: "A paid feed of market calls whose track record cannot be faked. Sealed on Monad, priced by Perpl's oracle.",
 };
@@ -16,7 +20,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <header className="mx-auto w-full max-w-2xl px-4 pt-6 pb-2 flex items-baseline justify-between">
           <Link href="/" className="text-xl font-bold tracking-tight">RECEIPTS</Link>
-          <nav className="flex items-baseline gap-4 text-xs" style={{ color: "var(--text-dim)" }}><Link href="/new" className="underline">Publish a call</Link><span>Monad testnet</span></nav>
+          <nav className="flex items-baseline gap-4 text-xs" style={{ color: "var(--text-dim)" }}><Link href="/me" className="underline">Me</Link><Link href="/new" className="underline">Publish a call</Link><ThemeToggle /><span>Monad testnet</span></nav>
         </header>
         <main className="mx-auto w-full max-w-2xl px-4 pb-16 flex-1">{children}</main>
         <footer className="mx-auto w-full max-w-2xl px-4 pb-8 text-xs" style={{ color: "var(--text-dim)" }}>
