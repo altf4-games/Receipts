@@ -6,7 +6,7 @@ Receipts is a paid curation feed for market calls whose track record cannot be f
 
 Entered in the **Social, Attention & Culture** track of Monad Metropolis (2026).
 
-> **Status: work in progress.** Deployed and verified on Monad testnet: the registries, SettlerV1 and Subscriptions. Running: four labelled bot curators (Cloudflare Workers) and a Next.js app at https://receipts-app-rho-ashy.vercel.app with a live feed, per-second subscriptions and in-browser verification. Built and tested on testnet but not yet the active settler on production: the Chainlink CRE price tape and SettlerV2 (activation after a 6-hour timelock). Also built: an Envio indexer (Monad testnet and mainnet) and open ranker algorithms with an onchain registry. Not built yet: Nansen integration and the mainnet cross-chain flow. This README is filled in as each piece ships, with transaction hashes and addresses that can be read live.
+> **Status: work in progress.** Deployed and verified on Monad testnet: the registries, both settlers, the price tape and Subscriptions. Running: four labelled bot curators (Cloudflare Workers) and a Next.js app at https://receipts-app-rho-ashy.vercel.app with a live feed, per-second subscriptions, in-browser verification and email sign-in with a built-in wallet. SettlerV2 (the Chainlink CRE price tape settler) became the active production settler on Oct 5, 2026 (tx `0xca4104eb11d237800655115357d04c17791f707d2f63c45b2e16298782559bed`). Also built: an Envio indexer (Monad testnet and mainnet), open ranker algorithms with an onchain registry, and the Nansen integration below. Not built: the mainnet cross-chain flow. This README is filled in as each piece ships, with transaction hashes and addresses that can be read live.
 
 ## Deployed contracts (Monad testnet, chain 10143)
 
@@ -54,6 +54,34 @@ Honest limits:
 - **The CRE workflow runs as a CLI simulation with broadcast, not as a deployed workflow.** Deployment needs a commercial arrangement with Chainlink that I did not pursue. The simulation sends real transactions through Chainlink's `MockKeystoneForwarder`, which does not verify DON signatures; this is why nothing in the design depends on authenticating the workflow.
 - **Path resolution is the tape's density.** A touch between two samples is invisible, and the first sample at or after the horizon can lag the horizon (flagged when more than 180 s).
 - **SettlerV2 on production becomes the registry's settler only after a 6-hour timelock** that I proposed on 5 Oct 2026; calls already settled by SettlerV1 stay final.
+
+## Nansen: smart money at the moment of the call
+
+I use Nansen where it answers a question a subscriber actually has: was this curator going with the crowd or against it? For every revealed call, the receipt page shows what Nansen Smart Money was doing in that market in the 24 hours before the call was sealed, and whether the call went with or against that lean. Only trades before the commit time are counted, and a sealed call's direction is never compared (it is secret until reveal). `/rankers` has a "beats smart money" table that ranks curators by the Wilson lower bound of their win rate on calls made *against* the lean, so following the crowd and being right does not rank. Example from production: receipt #19 was LONG when Smart Money had opened about $173k long and $645k short BTC, and it won +0.45%.
+
+**Endpoints I call** (REST, `https://api.nansen.ai`, header `apikey`):
+
+| Endpoint | Used for | Cost I measured |
+|---|---|---|
+| `POST /api/v1/smart-money/perp-trades` | Smart Money new perp positions for BTC, ETH, SOL (`only_new_positions`, 168 h lookback, one page of 1000) | 5 credits per call |
+| `POST /api/v1/profiler/address/related-wallets` (`chain: monad`) | wallets related to a curator's linked identity wallet, for same-operator clusters | 1 credit |
+| `POST /api/v1/profiler/address/pnl-summary` (`chain: monad`) | realised PnL and win rate of that wallet on Monad mainnet | read from the `x-nansen-credits-cost` header |
+
+I use the REST API directly. I did not use the Nansen CLI or MCP tools in the product.
+
+**How it is wired**
+- `app/lib/nansen.ts` is the only code that calls Nansen. The free plan is 100 credits once, then 10 a day, so pages never call Nansen. A daily Vercel cron (`/api/nansen/refresh`, secret-protected) stores the responses in Redis with the time they were fetched, and every Nansen panel says "as of". The client reads the remaining credits from Nansen's response headers and stops below a reserve of 12.
+- The maths is pure and tested: `rankers/src/smartMoney.ts` (lean at a commit time, with/against, the ranker) and `rankers/src/clusters.ts` (same-operator clusters by union-find over shared funders or deployers). 14 of the 38 ranker tests cover these.
+- Nansen has no testnet data and the protocol runs on Monad testnet. So a curator can link a **mainnet identity wallet** to their curator address: the wallet signs a message that names the curator (`CuratorRegistry.linkIdentity`, with a replay-proof nonce), so nobody can link a wallet they do not control. The form is on `/me`.
+
+**What is real and what is not.** The Smart Money lean and the "beats smart money" table run on real Nansen data today. The wallet panel and the cluster flag are built, tested and call Nansen for real: I linked one wallet and Nansen answered both calls, with an empty result, because testnet curators have no mainnet history. I will not link wallets to fake a cluster, so those panels show that empty state. Limits that come from Nansen: Smart Money perp data is Hyperliquid only (Perpl is not covered), only the trailing 7 days are available, and I only started storing it on Oct 5, so earlier calls are not compared. Notes on friction are in the partner feedback I wrote while building.
+
+## Perpl: the oracle as the trust anchor
+
+Receipts is a track-record product, so it uses Perpl as a source of truth rather than as a trading venue. All of this runs on real Perpl state:
+- **Onchain oracle.** `CallRegistry.commit` reads `Exchange.getPerpetualInfo` in the same transaction and stores the Chainlink Data Streams price (`oraclePNS`) and its timestamp as the entry. It checks `ignOracle` is false and the price is no older than 120 s. `PriceTape.sample` does the same read to build the price path used for take-profit and stop-loss settlement.
+- **REST API.** The Chainlink CRE workflow calls Perpl's market-data candles (`/api/v1/market-data/:id/candles/60/:from-:to`) as its external API and records the gap to the oracle in a `CrossCheck` event. The candle price is never used to score a call.
+- **Perpl events in the indexer.** The Envio indexer reads `AccountCreated` and `PositionOpened` / `PositionOpenedV2` from the Exchange (testnet and mainnet) to link a curator's wallet to its Perpl account and flag Perpl positions opened while their call was open.
 
 ## Indexer and open rankers
 
