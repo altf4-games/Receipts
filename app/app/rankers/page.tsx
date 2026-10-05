@@ -38,6 +38,21 @@ export default async function Rankers({ searchParams }: PageProps<"/rankers">) {
           </p>
         ) : <p className="mt-2 text-xs dim">Not registered on chain.</p>}
       </section>
+      <section className="mt-4 slip text-sm" aria-label="Coin-flip check">
+        <div className="font-bold">The coin-flip check</div>
+        <p className="dim mt-1">
+          <b>bot:coinflip</b> picks a direction by flipping a coin, so it has no skill. A ranker that puts it at the top is rewarding luck. Its real rank under each ranker, from the data above:
+        </p>
+        <ul className="mt-2">
+          {ALL_RANKERS.map((r) => {
+            const row = data ? r.rank(data.curators).find((x) => x.handle === "bot:coinflip") : undefined;
+            return <li key={r.name} className="flex justify-between"><Link href={`/rankers?r=${r.name}`} className="underline">{r.name}</Link><span>{row?.rank ? `#${row.rank} of ${data?.curators.length}` : typeof row?.detail.needMore === "number" ? `unranked: needs ${row.detail.needMore} more calls` : "–"}</span></li>;
+          })}
+        </ul>
+        <p className="mt-3 text-xs dim">
+          <b>Simulation, not data</b> (seeded, <code>rankers/scripts/coinflip.ts</code>): among 30 pure coin flippers with 10 to 120 calls and 3 curators with a real edge, the share of trials where the top-ranked curator is skilled is: weak edge (58% wins, 60 calls) raw 40.7%, average per call 33.8%, luck-adjusted 46.9%; clear edge (65% wins, 100 calls) raw 99.0%, average 65.5%, luck-adjusted 92.6%. Luck adjustment mainly stops short streaks and volume from winning; with a big edge, plain summing is fine.
+        </p>
+      </section>
       {error && <div role="alert" className="slip mt-4 text-sm">Could not read the indexer ({error}). Reload in a few seconds.</div>}
       {data && (
         <section className="mt-4 slip text-sm" aria-label={`${ranker.name} ranking`}>
