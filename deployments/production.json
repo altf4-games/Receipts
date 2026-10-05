@@ -10,5 +10,6 @@
   "minHorizon": 900,
   "name": "production",
   "settlerDelay": 21600,
-  "settlerV1": "0xF39358B88cF73a1d9158f00b9D5E39A04543E03f"
+  "settlerV1": "0xF39358B88cF73a1d9158f00b9D5E39A04543E03f",
+  "subscriptions": "0xcbDFf5C6f618dEA573a4B0FE000AF712F85D661e"
 }

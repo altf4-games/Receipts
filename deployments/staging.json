@@ -10,5 +10,6 @@
   "minHorizon": 60,
   "name": "staging",
   "settlerDelay": 60,
-  "settlerV1": "0x585C1E9358e9ce0c91676708d6989927192cd242"
+  "settlerV1": "0x585C1E9358e9ce0c91676708d6989927192cd242",
+  "subscriptions": "0x41BB16670787c9036CC10D008424a4ebDf1d76E4"
 }

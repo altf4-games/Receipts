@@ -17,6 +17,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import callRegistryAbi from "./abi/CallRegistry.json" with { type: "json" };
 import curatorRegistryAbi from "./abi/CuratorRegistry.json" with { type: "json" };
 import settlerAbi from "./abi/SettlerV1.json" with { type: "json" };
+import subscriptionsAbi from "./abi/Subscriptions.json" with { type: "json" };
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(here, "../..");
@@ -26,6 +27,7 @@ export const abis = {
   call: callRegistryAbi as Abi,
   curators: curatorRegistryAbi as Abi,
   settler: settlerAbi as Abi,
+  subscriptions: subscriptionsAbi as Abi,
 };
 
 export const deployment = JSON.parse(
@@ -34,6 +36,7 @@ export const deployment = JSON.parse(
   callRegistry: Address;
   curatorRegistry: Address;
   settlerV1: Address;
+  subscriptions?: Address;
   exchange: Address;
   bondToken: Address;
   minBond: number;
