@@ -4,6 +4,7 @@ import type { Address, Hex } from "viem";
 import { callRegistryAbi, erc20Abi, subscriptionsAbi } from "@/lib/abi";
 import { DEPLOYMENTS, EXPLORER, type DeploymentName } from "@/lib/config";
 import { hashPlain, type Plain } from "@/lib/hash";
+import { FaucetButton } from "@/components/FaucetButton";
 import { clients, connect, humanError, monad, provider } from "@/lib/wallet";
 
 type Props = { dep: DeploymentName; callId: number; curator: Address; handle: string; status: string; ratePerSec: string };
@@ -122,6 +123,7 @@ export function Unlock({ dep, callId, curator, handle, status, ratePerSec }: Pro
                   {busy ?? "Sign and unlock"}
                 </button>
               )}
+              {!active && <FaucetButton account={account} />}
               {busy && <div className="dim">{busy}… confirm in your wallet if asked.</div>}
             </div>
           )}

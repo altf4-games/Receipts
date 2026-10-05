@@ -5,6 +5,7 @@ import { parseAbi, toHex, type Address, type Hex } from "viem";
 import { callRegistryAbi, erc20Abi, subscriptionsAbi } from "@/lib/abi";
 import { DEPLOYMENTS, EXPLORER, MARKETS, type DeploymentName } from "@/lib/config";
 import { hashPlain, type Plain } from "@/lib/hash";
+import { FaucetButton } from "@/components/FaucetButton";
 import { SealTracker } from "@/components/SealTracker";
 import { startHeads } from "@/lib/heads";
 import { clients, connect, humanError, monad } from "@/lib/wallet";
@@ -152,8 +153,9 @@ export function NewCall({ dep }: { dep: DeploymentName }) {
           <div className="dim break-all">Connected {acct} · {ausd(bal)} AUSD{handle ? ` · curator ${handle}` : ""}</div>
           {!handle && (
             <div className="mt-3 flex flex-col gap-3">
+              <FaucetButton account={acct} onDone={() => load(acct)} />
               <div className="font-bold">1. Become a curator</div>
-              <p className="dim">Posts a {ausd(minBond)} AUSD bond (a sybil-cost deposit, not slashed in v1) and picks a handle. Need AUSD? Request it from the Agora testnet faucet.</p>
+              <p className="dim">Posts a {ausd(minBond)} AUSD bond (a sybil-cost deposit, not slashed in v1) and picks a handle.</p>
               <label className={lab}>Handle<input className={field} style={{ borderColor: "var(--paper-ink)" }} value={newHandle} onChange={(e) => setNewHandle(e.target.value)} placeholder="your-name" /></label>
               <button className={btn} style={{ borderColor: "var(--paper-ink)" }} onClick={onRegister} disabled={!!busy}>{busy ?? `Register with ${ausd(minBond)} AUSD bond`}</button>
             </div>

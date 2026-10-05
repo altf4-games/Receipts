@@ -29,3 +29,7 @@ export type DeploymentName = keyof typeof DEPLOYMENTS;
 
 /** First block of each Subscriptions deployment: where the event scanner starts. */
 export const SUBS_DEPLOY_BLOCK: Record<DeploymentName, number> = { production: 68317022, staging: 68316433 };
+
+/** Agora testnet AUSD faucet: requestFunds(address) sends 10,000 AUSD, one request per 60 s. Gas is paid in MON (faucet.monad.xyz). */
+export const AUSD_FAUCET = "0xd236c18D274E54FAccC3dd9DDA4b27965a73ee6C" as const;
+export const MON_FAUCET_URL = "https://faucet.monad.xyz";
