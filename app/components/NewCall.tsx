@@ -8,7 +8,7 @@ import { hashPlain, type Plain } from "@/lib/hash";
 import { FaucetButton } from "@/components/FaucetButton";
 import { SealTracker } from "@/components/SealTracker";
 import { startHeads } from "@/lib/heads";
-import { clients, connect, humanError, monad } from "@/lib/wallet";
+import { clients, connect, humanError, monad, useAutoConnect } from "@/lib/wallet";
 
 const curatorAbi = parseAbi([
   "function register(string handle, string metadataURI, bool isBot, uint256 bondAmount)",
@@ -83,6 +83,8 @@ export function NewCall({ dep }: { dep: DeploymentName }) {
   };
 
   const onConnect = () => run("Connecting", async () => { startHeads(); setAcct(await connect()); });
+
+  useAutoConnect(!!acct, onConnect);
 
   const onRegister = () => run("Registering", async () => {
     const h = newHandle.trim();

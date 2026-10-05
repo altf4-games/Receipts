@@ -1,5 +1,6 @@
 "use client";
 import { PrivyProvider, usePrivy, useWallets } from "@privy-io/react-auth";
+import Link from "next/link";
 import { useEffect } from "react";
 import { CHAIN_ID } from "@/lib/config";
 import { setLoginHandler, setProviderOverride, monad } from "@/lib/wallet";
@@ -51,7 +52,7 @@ function AuthInner() {
   if (!ready) return <span className="dim" aria-hidden>…</span>;
   if (!authenticated) return <button onClick={() => login()} className="underline whitespace-nowrap">Sign in</button>;
   const who = user?.google?.email ?? user?.email?.address ?? "signed in";
-  return <button onClick={() => logout()} className="underline whitespace-nowrap" title={`Signed in as ${who}`}>Sign out</button>;
+  return <><Link href="/me" className="underline whitespace-nowrap">Test money</Link><button onClick={() => logout()} className="underline whitespace-nowrap" title={`Signed in as ${who}`}>Sign out</button></>;
 }
 
 export function AuthButton() {

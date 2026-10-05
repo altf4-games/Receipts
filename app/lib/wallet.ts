@@ -1,4 +1,5 @@
 "use client";
+import { useEffect } from "react";
 import { createPublicClient, createWalletClient, custom, defineChain, type Address, type EIP1193Provider } from "viem";
 import { CHAIN_ID, RPC_URL } from "./config";
 
@@ -71,4 +72,20 @@ export function humanError(e: unknown): string {
   if (/exceeds balance|transfer amount exceeds/i.test(err.message ?? "")) return "Not enough AUSD. Use the Get 10,000 test AUSD button below.";
   if (/NotAccepting/.test(err.message ?? "")) return "This curator is not accepting subscribers.";
   return err.shortMessage ?? err.message?.split("\n")[0] ?? "Something went wrong.";
+}
+
+/** True while a Privy embedded wallet is signed in. */
+export const hasEmbedded = () => override !== null;
+
+/** Connects automatically once someone signs in with the embedded wallet, so there is no second "Connect wallet" click. */
+export function useAutoConnect(connected: boolean, onConnect: () => void) {
+  useEffect(() => {
+    if (connected) return;
+    const on = () => { if (override) onConnect(); };
+    on();
+    window.addEventListener("receipts:provider", on);
+    return () => window.removeEventListener("receipts:provider", on);
+    // onConnect is recreated every render; the effect only needs to re-run when the connected state changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected]);
 }

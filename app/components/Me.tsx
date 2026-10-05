@@ -3,7 +3,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { parseAbi, type Address, type Hex } from "viem";
 import { DEPLOYMENTS, EXPLORER, type DeploymentName } from "@/lib/config";
-import { clients, connect, humanError, monad } from "@/lib/wallet";
+import { FaucetButton } from "@/components/FaucetButton";
+import { clients, connect, humanError, monad, useAutoConnect } from "@/lib/wallet";
 
 const abi = parseAbi(["function claim(address[] subscribers) returns (uint256)", "function cancel(address curator) returns (uint256)"]);
 type CurRow = { subscriber: Address; deposit: string; accrued: string; unclaimed: string; active: boolean; activeUntil: number };
@@ -46,6 +47,8 @@ export function Me({ dep }: { dep: DeploymentName }) {
     await load(acct!);
   };
 
+  useAutoConnect(!!acct, () => run("Connecting", async () => setAcct(await connect())));
+
   const btn = "border-2 px-3 py-2 font-bold disabled:opacity-50";
   const claimable = view ? BigInt(view.owed) + view.asCurator.reduce((n, r) => n + BigInt(r.unclaimed), BigInt(0)) : BigInt(0);
 
@@ -61,6 +64,7 @@ export function Me({ dep }: { dep: DeploymentName }) {
         <>
           <section className="slip text-sm">
             <div className="dim break-all">Connected {acct}</div>
+            <div className="mt-2"><FaucetButton account={acct} onDone={() => load(acct)} /></div>
             <hr />
             <div className="font-bold">Earnings as a curator</div>
             {!view ? <p className="dim">Loading…</p> : view.asCurator.length === 0 && view.owed === "0" ? (
