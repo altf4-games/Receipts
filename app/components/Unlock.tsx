@@ -57,7 +57,7 @@ export function Unlock({ dep, callId, curator, handle, status, ratePerSec }: Pro
     if (bal < amount) throw new Error("transfer amount exceeds balance");
     const allowance = await pub.readContract({ address: addrs.ausd, abi: erc20Abi, functionName: "allowance", args: [account!, addrs.subscriptions] });
     if (allowance < amount) {
-      setBusy("Approving AUSD (1 of 2)");
+      setBusy("Approving the payment (1 of 2)");
       const h = await wallet.writeContract({ address: addrs.ausd, abi: erc20Abi, functionName: "approve", args: [addrs.subscriptions, amount], account: account!, chain: monad } as never);
       await pub.waitForTransactionReceipt({ hash: h });
       setTxs((t) => [...t, h]);
@@ -101,7 +101,7 @@ export function Unlock({ dep, callId, curator, handle, status, ratePerSec }: Pro
         <p>This curator has not opened subscriptions yet, so there is nothing to buy. The call will become public when it is revealed.</p>
       ) : (
         <>
-          <div className="dim">Price: {ausd(rate * BigInt(3600))} AUSD per hour ({ratePerSec} units/s)</div>
+          <div className="dim">Price: ${ausd(rate * BigInt(3600))} per hour, paid by the second</div>
           {!account ? (
             <button onClick={onConnect} disabled={!!busy} className="mt-3 border-2 px-3 py-2 font-bold" style={{ borderColor: "var(--paper-ink)" }}>
               {busy ?? "Connect wallet"}
@@ -113,7 +113,7 @@ export function Unlock({ dep, callId, curator, handle, status, ratePerSec }: Pro
                 <div className="flex flex-wrap gap-2">
                   {DURATIONS.map((d) => (
                     <button key={d.secs} onClick={() => onSubscribe(d.secs)} disabled={!!busy} className="border-2 px-3 py-2 font-bold" style={{ borderColor: "var(--paper-ink)" }}>
-                      {d.label} · {ausd(rate * BigInt(d.secs))} AUSD
+                      {d.label} · ${ausd(rate * BigInt(d.secs))}
                     </button>
                   ))}
                 </div>

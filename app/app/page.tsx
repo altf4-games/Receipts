@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LiveRefresh } from "@/components/LiveRefresh";
 import { Receipt } from "@/components/Receipt";
 import { recentCalls } from "@/lib/calls";
 import type { CallView } from "@/lib/calls";
@@ -46,7 +47,7 @@ export default async function Home() {
           </ol>
         </section>
       )}
-      <h1 className="mt-6 mb-3 text-sm font-bold uppercase tracking-widest">Latest receipts · {feed.total} sealed so far</h1>
+      <div className="mt-6 mb-3 flex flex-wrap items-baseline justify-between gap-2"><h1 className="text-sm font-bold uppercase tracking-widest">Latest receipts · {feed.total} sealed so far</h1><LiveRefresh /></div>
       {feed.error && <div role="alert" className="slip text-sm">Could not read the data right now ({feed.error}). Reload in a few seconds.</div>}
       {!feed.error && feed.calls.length === 0 && <div className="slip text-sm">No calls yet.</div>}
       <div className="flex flex-col gap-6">{feed.calls.map((c) => <Receipt key={c.id} c={c} />)}</div>

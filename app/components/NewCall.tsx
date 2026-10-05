@@ -98,7 +98,7 @@ export function NewCall({ dep }: { dep: DeploymentName }) {
 
   const onRate = () => run("Setting price", async () => {
     const perHour = Number(price);
-    if (!(perHour >= 0) || perHour > 100000) throw new Error("Enter a price between 0 and 100000 AUSD per hour.");
+    if (!(perHour >= 0) || perHour > 100000) throw new Error("Enter a price between $0 and $100,000 per hour.");
     const perSec = BigInt(Math.round((perHour * 1e6) / 3600));
     await send(A.subscriptions, setRateAbi, "setRate", [perSec]);
     await load(acct!);
@@ -150,22 +150,22 @@ export function NewCall({ dep }: { dep: DeploymentName }) {
         </section>
       ) : (
         <section className="slip text-sm">
-          <div className="dim break-all">Connected {acct} · {ausd(bal)} AUSD{handle ? ` · curator ${handle}` : ""}</div>
+          <div className="dim break-all">Connected {acct} · ${ausd(bal)}{handle ? ` · curator ${handle}` : ""}</div>
           {!handle && (
             <div className="mt-3 flex flex-col gap-3">
               <FaucetButton account={acct} onDone={() => load(acct)} />
               <div className="font-bold">1. Become a curator</div>
-              <p className="dim">Posts a {ausd(minBond)} AUSD bond (a sybil-cost deposit, not slashed in v1) and picks a handle.</p>
+              <p className="dim">Posts a ${ausd(minBond)} bond in test dollars (AUSD): a deposit that makes fake accounts costly, not slashed in v1, and picks a handle.</p>
               <label className={lab}>Handle<input className={field} style={{ borderColor: "var(--paper-ink)" }} value={newHandle} onChange={(e) => setNewHandle(e.target.value)} placeholder="your-name" /></label>
-              <button className={btn} style={{ borderColor: "var(--paper-ink)" }} onClick={onRegister} disabled={!!busy}>{busy ?? `Register with ${ausd(minBond)} AUSD bond`}</button>
+              <button className={btn} style={{ borderColor: "var(--paper-ink)" }} onClick={onRegister} disabled={!!busy}>{busy ?? `Register with a $${ausd(minBond)} bond`}</button>
             </div>
           )}
           {handle && (
             <div className="mt-3 flex flex-col gap-5">
               <div className="flex flex-col gap-2">
-                <div className="font-bold">Your price {rate === BigInt(0) ? "(not selling yet)" : `(${ausd(rate * BigInt(3600))} AUSD per hour)`}</div>
+                <div className="font-bold">Your price {rate === BigInt(0) ? "(not selling yet)" : `($${ausd(rate * BigInt(3600))} per hour)`}</div>
                 <div className="flex gap-2 items-end">
-                  <label className={lab}>AUSD per hour<input className={field} style={{ borderColor: "var(--paper-ink)" }} value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" /></label>
+                  <label className={lab}>Price in $ per hour<input className={field} style={{ borderColor: "var(--paper-ink)" }} value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" /></label>
                   <button className={btn} style={{ borderColor: "var(--paper-ink)" }} onClick={onRate} disabled={!!busy}>Set price</button>
                 </div>
                 <p className="dim">Applies to new subscribers only; running subscriptions keep their rate.</p>

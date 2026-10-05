@@ -67,7 +67,7 @@ export function Me({ dep }: { dep: DeploymentName }) {
               <p className="dim">No subscribers yet.</p>
             ) : (
               <>
-                <div className="mt-1">Ready to claim: <b>{ausd(claimable)} AUSD</b></div>
+                <div className="mt-1">Ready to claim: <b>${ausd(claimable)}</b></div>
                 <ul className="mt-2 flex flex-col gap-1">
                   {view.asCurator.map((r) => (
                     <li key={r.subscriber} className="flex justify-between gap-2">
@@ -79,7 +79,7 @@ export function Me({ dep }: { dep: DeploymentName }) {
                 <button className={`${btn} mt-3`} style={{ borderColor: "var(--stamp-green)", color: "var(--stamp-green)" }}
                   disabled={!!busy || claimable === BigInt(0)}
                   onClick={() => run("Claiming", () => write("claim", [view.asCurator.map((r) => r.subscriber)]))}>
-                  {busy === "Claiming" ? "Claiming…" : `Claim ${ausd(claimable)} AUSD`}
+                  {busy === "Claiming" ? "Claiming…" : `Claim $${ausd(claimable)}`}
                 </button>
               </>
             )}
@@ -90,7 +90,7 @@ export function Me({ dep }: { dep: DeploymentName }) {
               <ul className="mt-2 flex flex-col gap-3">
                 {view.asSubscriber.map((r) => (
                   <li key={r.curator} className="flex items-center justify-between gap-2">
-                    <span>{r.handle}<br /><span className="dim">{r.active ? `until ${when(r.activeUntil)}` : "ended"} · refundable {ausd(r.refundable)} AUSD</span></span>
+                    <span>{r.handle}<br /><span className="dim">{r.active ? `until ${when(r.activeUntil)}` : "ended"} · refundable ${ausd(r.refundable)}</span></span>
                     <button className={btn} style={{ borderColor: "var(--paper-ink)" }} disabled={!!busy}
                       onClick={() => run("Cancelling", () => write("cancel", [r.curator]))}>Cancel</button>
                   </li>

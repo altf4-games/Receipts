@@ -12,7 +12,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(site),
   title: "Receipts",
   description: "A paid feed of market calls whose track record cannot be faked. Sealed on Monad, priced by Perpl's oracle.",
+  icons: { icon: "/pwa-icon/192", apple: "/pwa-icon/180" },
+  appleWebApp: { capable: true, title: "Receipts", statusBarStyle: "black-translucent" },
 };
+
+export const viewport = { themeColor: "#0e0f12" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

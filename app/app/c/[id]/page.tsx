@@ -52,7 +52,7 @@ export default async function CuratorPage({ params }: PageProps<"/c/[id]">) {
             <dt className="dim">Max drawdown</dt><dd className="text-right">{(s.maxDrawdownBps / 100).toFixed(2)}%</dd>
           </dl>
         ) : <p className="dim">No scored calls yet.</p>}
-        {rev && rev.rate !== "0" && <p className="mt-3">Sells subscriptions at {(Number(rev.rate) * 3600 / 1e6).toFixed(2)} AUSD per hour · {rev.subscribers} subscribers so far.</p>}
+        {rev && rev.rate !== "0" && <p className="mt-3">Sells subscriptions at ${(Number(rev.rate) * 3600 / 1e6).toFixed(2)} per hour · {rev.subscribers} subscribers so far.</p>}
         {cur.perplAccountId && <p className="mt-2 dim">Perpl account #{cur.perplAccountId} linked.{skin.length ? ` Opened Perpl positions while ${skin.length} of the calls below were open.` : " No Perpl positions opened while a call was open."}</p>}
       </section>
       <section className="mt-4 slip text-sm" aria-label="Nansen intelligence">
