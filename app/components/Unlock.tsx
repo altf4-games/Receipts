@@ -50,7 +50,7 @@ export function Unlock({ dep, callId, curator, handle, status, ratePerSec }: Pro
     await refresh(a);
   });
 
-  useAutoConnect(!!account, onConnect);
+  useAutoConnect(onConnect, () => { setAccount(null); setResult(null); });
 
   const onSubscribe = (secs: number) => run("Subscribing", async () => {
     const { pub, wallet } = clients(account!);
@@ -131,7 +131,7 @@ export function Unlock({ dep, callId, curator, handle, status, ratePerSec }: Pro
           )}
         </>
       )}
-      {noProvider && !account && <p className="mt-2 dim">No browser wallet detected on this device.</p>}
+      {noProvider && !account && <p className="mt-2 dim">No browser wallet detected on this device.{process.env.NEXT_PUBLIC_PRIVY_APP_ID ? " Sign in with your email (top right) to get a built-in wallet." : ""}</p>}
       {error && <div role="alert" className="mt-3" style={{ color: "var(--stamp-red)" }}>{error}</div>}
       {txs.map((t) => (
         <div key={t} className="mt-2 break-all text-xs dim"><a className="underline" href={`${EXPLORER}/tx/${t}`}>tx {t}</a></div>

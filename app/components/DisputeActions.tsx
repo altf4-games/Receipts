@@ -14,8 +14,10 @@ export function DisputeActions({ callId, windowEnd, finalized, candidate }: { ca
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tx, setTx] = useState<Hex | null>(null);
+  const [now] = useState(() => Date.now() / 1000); // fixed at mount; the contract is the judge of whether the window is still open
   if (finalized) return null;
-  const open = Date.now() / 1000 < windowEnd;
+  const open = now < windowEnd;
   const run = async (fn: "dispute" | "finalize") => {
     setBusy(true); setError(null); setMsg(null);
     try {
@@ -33,7 +35,6 @@ export function DisputeActions({ callId, windowEnd, finalized, candidate }: { ca
       setError(/NotEarlier|NotATouch|WindowClosed|WindowOpen|AlreadyFinalized|SampleOutsidePath|reverted/i.test(m) ? `The contract refused it: ${m}` : m);
     } finally { setBusy(false); }
   };
-  const [tx, setTx] = useState<Hex | null>(null);
   const btn = "border-2 px-3 py-2 text-sm font-bold disabled:opacity-50";
   return (
     <div className="mt-3">

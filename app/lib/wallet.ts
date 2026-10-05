@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createPublicClient, createWalletClient, custom, defineChain, type Address, type EIP1193Provider } from "viem";
 import { CHAIN_ID, RPC_URL } from "./config";
 
@@ -14,6 +14,7 @@ export const monad = defineChain({
 let override: EIP1193Provider | null = null; // set by the Privy bridge while someone is signed in with an embedded wallet
 let loginHandler: (() => void) | null = null; // opens Privy's sign-in dialog; set only when Privy is configured
 export function setProviderOverride(p: EIP1193Provider | null) {
+  if (p === override) return; // only real changes (sign-in, sign-out) are announced
   override = p;
   if (typeof window !== "undefined") window.dispatchEvent(new Event("receipts:provider"));
 }
@@ -77,15 +78,18 @@ export function humanError(e: unknown): string {
 /** True while a Privy embedded wallet is signed in. */
 export const hasEmbedded = () => override !== null;
 
-/** Connects automatically once someone signs in with the embedded wallet, so there is no second "Connect wallet" click. */
-export function useAutoConnect(connected: boolean, onConnect: () => void) {
+/**
+ * Keeps a component's wallet state in step with sign-in and sign-out. When the embedded wallet appears the component is reset
+ * and connected to it; when it goes away (sign-out) the component is reset, so it never keeps acting for an address whose
+ * wallet is gone. Extension wallets stay connect-on-click.
+ */
+export function useAutoConnect(onConnect: () => void, onReset: () => void) {
+  const cb = useRef({ onConnect, onReset });
+  useEffect(() => { cb.current = { onConnect, onReset }; });
   useEffect(() => {
-    if (connected) return;
-    const on = () => { if (override) onConnect(); };
-    on();
+    const on = () => { cb.current.onReset(); if (override) cb.current.onConnect(); };
+    if (override) cb.current.onConnect(); // already signed in when this component mounted
     window.addEventListener("receipts:provider", on);
     return () => window.removeEventListener("receipts:provider", on);
-    // onConnect is recreated every render; the effect only needs to re-run when the connected state changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connected]);
+  }, []);
 }

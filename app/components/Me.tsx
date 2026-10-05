@@ -47,7 +47,7 @@ export function Me({ dep }: { dep: DeploymentName }) {
     await load(acct!);
   };
 
-  useAutoConnect(!!acct, () => run("Connecting", async () => setAcct(await connect())));
+  useAutoConnect(() => run("Connecting", async () => setAcct(await connect())), () => { setAcct(null); setView(null); });
 
   const btn = "border-2 px-3 py-2 font-bold disabled:opacity-50";
   const claimable = view ? BigInt(view.owed) + view.asCurator.reduce((n, r) => n + BigInt(r.unclaimed), BigInt(0)) : BigInt(0);

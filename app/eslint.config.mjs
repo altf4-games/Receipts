@@ -5,6 +5,8 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // Hydration-time reads (theme, wallet, first-load state) are done in effects on purpose: the server cannot know them.
+  { rules: { "react-hooks/set-state-in-effect": "warn" } },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

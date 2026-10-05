@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { parseAbi, toHex, type Address, type Hex } from "viem";
-import { callRegistryAbi, erc20Abi, subscriptionsAbi } from "@/lib/abi";
+import { erc20Abi, subscriptionsAbi } from "@/lib/abi";
 import { DEPLOYMENTS, EXPLORER, MARKETS, type DeploymentName } from "@/lib/config";
 import { hashPlain, type Plain } from "@/lib/hash";
 import { FaucetButton } from "@/components/FaucetButton";
@@ -84,7 +84,7 @@ export function NewCall({ dep }: { dep: DeploymentName }) {
 
   const onConnect = () => run("Connecting", async () => { startHeads(); setAcct(await connect()); });
 
-  useAutoConnect(!!acct, onConnect);
+  useAutoConnect(onConnect, () => setAcct(null));
 
   const onRegister = () => run("Registering", async () => {
     const h = newHandle.trim();
