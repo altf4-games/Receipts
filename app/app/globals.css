@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+/* "Thermal receipt": paper slips on dark ink. Tokens defined once. */
+:root {
+  --ink: #0e0f12;
+  --ink-2: #16181d;
+  --paper: #f4f0e4;
+  --paper-ink: #1b1a17;
+  --paper-dim: #6d6a5e;
+  --rule: #cfc9b6;
+  --stamp-red: #c8321f;
+  --stamp-green: #1f7a45;
+  --stamp-grey: #6b6a66;
+  --text: #e8e6df;
+  --text-dim: #8d8b84;
+}
+:root[data-theme="light"] {
+  --ink: #e9e5d8;
+  --ink-2: #ddd8c8;
+  --text: #1b1a17;
+  --text-dim: #5f5c52;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ink: #e9e5d8;
+    --ink-2: #ddd8c8;
+    --text: #1b1a17;
+    --text-dim: #5f5c52;
+  }
+}
+
+@theme inline {
+  --font-mono: var(--font-plex-mono);
+}
+
+html { background: var(--ink); }
+body { background: var(--ink); color: var(--text); font-family: var(--font-plex-mono), ui-monospace, monospace; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--stamp-red); outline-offset: 2px; }
+
+/* the slip */
+.slip {
+  position: relative;
+  background: var(--paper);
+  color: var(--paper-ink);
+  padding: 18px 18px 22px;
+  --tooth: 7px;
+  -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(var(--tooth) * 2) 51% repeat-x,
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / calc(var(--tooth) * 2) 51% repeat-x;
+  mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(var(--tooth) * 2) 51% repeat-x,
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / calc(var(--tooth) * 2) 51% repeat-x;
+}
+.slip hr { border: 0; border-top: 1px dashed var(--rule); margin: 10px 0; }
+.dim { color: var(--paper-dim); }
+.stamp {
+  display: inline-block;
+  border: 2px solid currentColor;
+  padding: 1px 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  transform: rotate(-4deg);
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+.barcode {
+  height: 26px;
+  background: repeating-linear-gradient(90deg, var(--paper-ink) 0 2px, transparent 2px 4px, var(--paper-ink) 4px 5px, transparent 5px 8px, var(--paper-ink) 8px 11px, transparent 11px 13px);
+  opacity: 0.85;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .slip-in { animation: slip-in 360ms ease-out both; }
+  @keyframes slip-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+}
