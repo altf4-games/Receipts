@@ -4,9 +4,11 @@
  */
 import http from "node:http";
 import { createPublicClient, createWalletClient, http as vhttp, hexToString, type Hex } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { monadTestnet, wallet } from "../src/chain.js";
 
-const W = wallet("TESTER_SUBSCRIBER");
+// FRESH=1 uses a brand-new random testnet key kept only in memory (to test first-time registration).
+const W = process.env.FRESH ? { account: privateKeyToAccount(generatePrivateKey()) } : wallet("TESTER_SUBSCRIBER");
 const pub = createPublicClient({ chain: monadTestnet, transport: vhttp() });
 const wc = createWalletClient({ account: W.account, chain: monadTestnet, transport: vhttp() });
 

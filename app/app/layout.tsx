@@ -16,7 +16,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <header className="mx-auto w-full max-w-2xl px-4 pt-6 pb-2 flex items-baseline justify-between">
           <Link href="/" className="text-xl font-bold tracking-tight">RECEIPTS</Link>
-          <span className="text-xs" style={{ color: "var(--text-dim)" }}>Monad testnet</span>
+          <nav className="flex items-baseline gap-4 text-xs" style={{ color: "var(--text-dim)" }}><Link href="/new" className="underline">Publish a call</Link><span>Monad testnet</span></nav>
         </header>
         <main className="mx-auto w-full max-w-2xl px-4 pb-16 flex-1">{children}</main>
         <footer className="mx-auto w-full max-w-2xl px-4 pb-8 text-xs" style={{ color: "var(--text-dim)" }}>
