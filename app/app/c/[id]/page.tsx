@@ -74,7 +74,7 @@ export default async function CuratorPage({ params }: PageProps<"/c/[id]">) {
             {w.intel ? (
               <>
                 <p>
-                  {w.intel.pnl ? `Realised PnL on Monad mainnet, last 90 days: ${w.intel.pnl.realizedUsd >= 0 ? "+" : "-"}$${Math.abs(w.intel.pnl.realizedUsd).toFixed(2)} (${(w.intel.pnl.winRate * 100).toFixed(0)}% win rate over ${w.intel.pnl.trades} trades in ${w.intel.pnl.tokens} tokens).` : "No PnL data from Nansen for this wallet."}{" "}
+                  {w.intel.pnl && w.intel.pnl.trades === 0 ? "Nansen sees no trades from this wallet on Monad mainnet in the last 90 days." : w.intel.pnl ? `Realised PnL on Monad mainnet, last 90 days: ${w.intel.pnl.realizedUsd >= 0 ? "+" : "-"}$${Math.abs(w.intel.pnl.realizedUsd).toFixed(2)} (${(w.intel.pnl.winRate * 100).toFixed(0)}% win rate over ${w.intel.pnl.trades} trades in ${w.intel.pnl.tokens} tokens).` : "No PnL data from Nansen for this wallet."}{" "}
                   {w.intel.related.length ? `${w.intel.related.length} related wallet${w.intel.related.length === 1 ? "" : "s"} (${[...new Set(w.intel.related.map((r) => r.relation))].join(", ")}).` : "No related wallets found."}
                 </p>
                 <p className="text-xs dim">Nansen data as of {new Date(w.intel.fetchedAt * 1000).toISOString().replace("T", " ").slice(0, 16)}Z.</p>
