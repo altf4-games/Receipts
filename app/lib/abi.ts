@@ -40,3 +40,19 @@ export const erc20Abi = [
   { type: "function", name: "allowance", stateMutability: "view", inputs: [{ name: "o", type: "address" }, { name: "s", type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "s", type: "address" }, { name: "v", type: "uint256" }], outputs: [{ type: "bool" }] },
 ] as const;
+
+export const priceTapeAbi = [
+  { type: "function", name: "sampleCount", stateMutability: "view", inputs: [{ name: "perpId", type: "uint256" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "firstIndexAtOrAfter", stateMutability: "view", inputs: [{ name: "perpId", type: "uint256" }, { name: "ts", type: "uint64" }], outputs: [{ type: "uint256" }] },
+  {
+    type: "function", name: "sampleAt", stateMutability: "view", inputs: [{ name: "perpId", type: "uint256" }, { name: "index", type: "uint256" }],
+    outputs: [{ type: "tuple", components: [{ name: "ts", type: "uint64" }, { name: "blockNumber", type: "uint64" }, { name: "price", type: "uint128" }] }],
+  },
+] as const;
+
+export const settlerV2Abi = [
+  {
+    type: "function", name: "proposals", stateMutability: "view", inputs: [{ name: "callId", type: "uint256" }],
+    outputs: [{ name: "proposedAt", type: "uint64" }, { name: "index", type: "uint32" }, { name: "scoreBps", type: "int32" }, { name: "touch", type: "bool" }, { name: "disputed", type: "bool" }, { name: "finalized", type: "bool" }],
+  },
+] as const;

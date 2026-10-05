@@ -18,9 +18,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${plex.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        <header className="mx-auto w-full max-w-2xl px-4 pt-6 pb-2 flex items-baseline justify-between">
+        <header className="mx-auto w-full max-w-2xl px-4 pt-6 pb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
           <Link href="/" className="text-xl font-bold tracking-tight">RECEIPTS</Link>
-          <nav className="flex items-baseline gap-4 text-xs" style={{ color: "var(--text-dim)" }}><Link href="/me" className="underline">Me</Link><Link href="/new" className="underline">Publish a call</Link><ThemeToggle /><span>Monad testnet</span></nav>
+          <nav className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs" style={{ color: "var(--text-dim)" }}><Link href="/me" className="underline">Me</Link><Link href="/new" className="underline whitespace-nowrap">Publish a call</Link><ThemeToggle /><span className="whitespace-nowrap">Monad testnet</span></nav>
         </header>
         <main className="mx-auto w-full max-w-2xl px-4 pb-16 flex-1">{children}</main>
         <footer className="mx-auto w-full max-w-2xl px-4 pb-8 text-xs" style={{ color: "var(--text-dim)" }}>
