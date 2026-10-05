@@ -103,6 +103,22 @@ async function decide(ctx: Ctx, spec: BotSpec, perpId: bigint): Promise<Decision
 }
 
 interface OpenItem { bot: BotRuntime; perpId: bigint; id: bigint; c: Call }
+/** A call by a human curator: the keeper can settle it or expire it, but never reveal it (only the curator holds the salt). */
+interface HumanItem { id: bigint; c: Call }
+/** How many of the newest call ids the keeper looks at for human curators' calls. */
+const HUMAN_WINDOW = 40;
+
+async function actHuman(ctx: Ctx, it: HumanItem) {
+  const d = ctx.deployment;
+  const tag = { human: it.c.curator, perpId: BigInt(it.c.perpId), callId: it.id };
+  if (it.c.status === Status.Sealed) {
+    await send(ctx, ctx.getKeeper(), d.callRegistry, CALL, "expire", [it.id], "expire", tag);
+    return;
+  }
+  const o = await readOracle(ctx.pc, d.exchange, BigInt(it.c.perpId));
+  if (o.ts >= it.c.horizonEnd) await send(ctx, ctx.getKeeper(), d.settlerV1, SETTLER, "settle", [it.id], "settle", tag);
+  else ctx.log({ evt: "waiting_for_oracle_sample", ...tag, oracleTs: o.ts, horizonEnd: it.c.horizonEnd });
+}
 
 /** Deadline-sensitive: an unrevealed call that is overdue must be expired; one that is due must be revealed before horizonEnd. */
 async function actUrgent(ctx: Ctx, it: OpenItem) {
@@ -185,12 +201,18 @@ export async function tickAll(ctx: Ctx, bots: BotRuntime[]) {
   // 50 subrequests/run; 12 separate reads is the wrong shape). A second multicall fetches the open calls' details.
   const pairs = bots.flatMap((bot) => bot.spec.markets.map((perpId) => ({ bot, perpId })));
   const openPairs: { bot: BotRuntime; perpId: bigint; id: bigint }[] = [];
+  let nextCallId = 0n;
   try {
     const idRes = await ctx.pc.multicall({
       allowFailure: true,
-      contracts: pairs.map(({ bot, perpId }) => ({ address: ctx.deployment.callRegistry, abi: CALL, functionName: "openCallId", args: [bot.address, perpId] })),
+      contracts: [
+        ...pairs.map(({ bot, perpId }) => ({ address: ctx.deployment.callRegistry, abi: CALL, functionName: "openCallId", args: [bot.address, perpId] })),
+        { address: ctx.deployment.callRegistry, abi: CALL, functionName: "nextCallId", args: [] },
+      ],
     } as never);
-    (idRes as { status: string; result?: unknown }[]).forEach((r, i) => {
+    const nextRes = (idRes as { status: string; result?: unknown }[])[pairs.length];
+    if (nextRes?.status === "success") nextCallId = nextRes.result as bigint;
+    (idRes as { status: string; result?: unknown }[]).slice(0, pairs.length).forEach((r, i) => {
       if (r.status !== "success") { ctx.log({ evt: "error", label: "scan", bot: pairs[i].bot.spec.handle, perpId: pairs[i].perpId, reason: "multicall item failed" }); return; }
       const id = r.result as bigint;
       if (id === 0n) free.push(pairs[i]);
@@ -199,15 +221,25 @@ export async function tickAll(ctx: Ctx, bots: BotRuntime[]) {
   } catch (e) {
     ctx.log({ evt: "error", label: "scan", reason: shortErr(e) }); // whole scan failed (RPC down/limited): do nothing this tick, retry next
   }
-  if (openPairs.length) {
+  const humans: HumanItem[] = [];
+  const openIds = new Set(openPairs.map((o) => o.id));
+  const windowIds: bigint[] = [];
+  for (let id = nextCallId - 1n; id >= 1n && windowIds.length < HUMAN_WINDOW; id--) if (!openIds.has(id)) windowIds.push(id);
+  if (openPairs.length || windowIds.length) {
     try {
       const callRes = await ctx.pc.multicall({
         allowFailure: true,
-        contracts: openPairs.map((o) => ({ address: ctx.deployment.callRegistry, abi: CALL, functionName: "getCall", args: [o.id] })),
+        contracts: [...openPairs.map((o) => o.id), ...windowIds].map((id) => ({ address: ctx.deployment.callRegistry, abi: CALL, functionName: "getCall", args: [id] })),
       } as never);
       (callRes as { status: string; result?: unknown }[]).forEach((r, i) => {
-        if (r.status !== "success") { ctx.log({ evt: "error", label: "scan_getCall", callId: openPairs[i].id, reason: "multicall item failed" }); return; }
+        if (r.status !== "success") { ctx.log({ evt: "error", label: "scan_getCall", reason: "multicall item failed" }); return; }
         const c = r.result as unknown as Call;
+        if (i >= openPairs.length) {
+          // newest-first window of other calls: only unfinished ones past their horizon need the keeper
+          const id = windowIds[i - openPairs.length];
+          if (((c.status === Status.Sealed && now > c.horizonEnd) || (c.status === Status.Revealed && now >= c.horizonEnd))) humans.push({ id, c });
+          return;
+        }
         const o = openPairs[i];
         const it = { bot: o.bot, perpId: o.perpId, id: o.id, c };
         if (c.status === Status.Sealed && (now > c.horizonEnd || now >= c.commitTime + BigInt(Math.floor(c.horizonSecs / 2)))) urgent.push(it);
@@ -225,9 +257,10 @@ export async function tickAll(ctx: Ctx, bots: BotRuntime[]) {
   };
   for (const it of urgent) await run("urgent", () => actUrgent(ctx, it), { bot: it.bot.spec.handle, perpId: it.perpId });
   for (const it of settles) await run("settle", () => actSettle(ctx, it), { bot: it.bot.spec.handle, perpId: it.perpId });
+  for (const h of humans) await run("human", () => actHuman(ctx, h), { human: h.c.curator, callId: h.id });
   for (const f of free) await run("commit", () => actCommit(ctx, f.bot, f.perpId), { bot: f.bot.spec.handle, perpId: f.perpId });
 
-  ctx.log({ evt: "tick", ms: Date.now() - t0, bots: bots.length, txSent: ctx._sent, deferred, urgent: urgent.length, settles: settles.length, free: free.length });
+  ctx.log({ evt: "tick", ms: Date.now() - t0, bots: bots.length, txSent: ctx._sent, deferred, urgent: urgent.length, settles: settles.length, humans: humans.length, free: free.length });
 }
 
 /** One-time setup per bot: AUSD bond (from the real Agora faucet if needed), approve, register as isBot=true. */

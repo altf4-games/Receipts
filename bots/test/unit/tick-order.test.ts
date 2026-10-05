@@ -18,7 +18,7 @@ const D: Deployment = {
 const NOW = 1_800_000_000n;
 const addr = (n: number) => ("0x" + n.toString(16).padStart(40, "0")) as Address;
 
-function setup(opts: { cap: number; calls: Record<string, Partial<Call>>; forceCommit?: boolean }) {
+function setup(opts: { cap: number; calls: Record<string, Partial<Call>>; forceCommit?: boolean; extraCalls?: Record<string, Partial<Call>> }) {
   const sent: string[] = [];
   const multicalls: number[] = [];
   const coinflip = BOTS.find((b) => b.strategy === "coinflip")!;
@@ -35,12 +35,18 @@ function setup(opts: { cap: number; calls: Record<string, Partial<Call>>; forceC
   const openId: Record<string, bigint> = {};
   let nextId = 1n;
   for (const [key] of Object.entries(opts.calls)) openId[key] = nextId++;
+  // human calls take the ids right after the bots' open calls
+  const extraIds = Object.keys(opts.extraCalls ?? {});
   const pc = {
     getBalance: async () => 10n ** 19n,
     readContract: async (a: { functionName: string; args: unknown[] }) => {
       if (a.functionName === "openCallId") return openId[`${(a.args[0] as string).toLowerCase()}:${a.args[1]}`] ?? 0n;
+      if (a.functionName === "nextCallId") return nextId + BigInt(Object.keys(opts.extraCalls ?? {}).length);
       if (a.functionName === "getCall") {
-        const key = Object.keys(openId).find((k) => openId[k] === a.args[0])!;
+        const extra = (opts.extraCalls ?? {})[String(a.args[0])];
+        if (extra) return { status: Status.Sealed, horizonSecs: 3600, commitTime: NOW - 7200n, horizonEnd: NOW - 100n, hash: "0x" + "00".repeat(32), perpId: 16, curator: addr(900), ...extra };
+        const key = Object.keys(openId).find((k) => openId[k] === a.args[0]);
+        if (!key) return { status: Status.None, horizonEnd: 0n, curator: addr(0) };
         return { status: Status.Sealed, horizonSecs: 3600, commitTime: NOW - 3000n, horizonEnd: NOW + 600n, hash: "0x" + "00".repeat(32), ...opts.calls[key] };
       }
       throw new Error("unexpected read " + a.functionName);
@@ -124,12 +130,12 @@ describe("per-tick budget goes to deadline-sensitive work first", () => {
     const s = setup({ cap: 3, forceCommit: false, calls: {} });
     s.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
     await tickAll(s.ctx, s.bots);
-    expect(s.multicalls).toEqual([3]); // 2 bots x markets (2 + 1) = 3 reads, a single multicall; no open calls => no second one
+    expect(s.multicalls).toEqual([4]); // 2 bots x markets (2 + 1) = 3 reads, a single multicall; no open calls => no second one
     const bot0 = s.bots[0].address;
     const t = setup({ cap: 3, forceCommit: false, calls: { [`${bot0.toLowerCase()}:16`]: sealedFor("bot:coinflip", bot0, 16n, 3600) } });
     t.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
     await tickAll(t.ctx, t.bots);
-    expect(t.multicalls).toEqual([3, 1]); // pairs, then the one open call
+    expect(t.multicalls).toEqual([4, 1]); // pairs, then the one open call
   });
 
   test("a signer is built only for the wallet that actually sends (keeper for a reveal, not the bots)", async () => {
@@ -140,6 +146,42 @@ describe("per-tick budget goes to deadline-sensitive work first", () => {
     await tickAll(s.ctx, s.bots);
     expect(s.sent).toEqual(["reveal"]);
     expect(s.signersBuilt).toEqual(["keeper"]);
+  });
+
+  test("human curators' calls: a revealed call past its horizon is settled by the keeper", async () => {
+    const s = setup({ cap: 3, forceCommit: false, calls: {}, extraCalls: { "1": { status: Status.Revealed, horizonEnd: NOW - 10n } } });
+    s.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
+    await tickAll(s.ctx, s.bots);
+    expect(s.sent).toEqual(["settle"]);
+  });
+
+  test("human curators' calls: an unrevealed call past its horizon is expired (the keeper can never reveal it)", async () => {
+    const s = setup({ cap: 3, forceCommit: false, calls: {}, extraCalls: { "1": { status: Status.Sealed, horizonEnd: NOW - 10n } } });
+    s.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
+    await tickAll(s.ctx, s.bots);
+    expect(s.sent).toEqual(["expire"]);
+  });
+
+  test("human curators' calls: nothing happens before the horizon, and finished calls are ignored", async () => {
+    const s = setup({
+      cap: 3, forceCommit: false, calls: {},
+      extraCalls: { "1": { status: Status.Sealed, horizonEnd: NOW + 600n }, "2": { status: Status.Revealed, horizonEnd: NOW + 1n }, "3": { status: Status.Settled, horizonEnd: NOW - 500n } },
+    });
+    s.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
+    await tickAll(s.ctx, s.bots);
+    expect(s.sent).toEqual([]);
+  });
+
+  test("with a cap of one transaction, a bot's overdue reveal goes before a human call's settle", async () => {
+    const bot0 = setup({ cap: 1, calls: {} }).bots[0].address;
+    const s = setup({
+      cap: 1, forceCommit: false,
+      calls: { [`${bot0.toLowerCase()}:16`]: sealedFor("bot:coinflip", bot0, 16n, 3600) },
+      extraCalls: { "2": { status: Status.Revealed, horizonEnd: NOW - 10n } },
+    });
+    s.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
+    await tickAll(s.ctx, s.bots);
+    expect(s.sent).toEqual(["reveal"]);
   });
 });
 
