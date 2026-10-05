@@ -18,12 +18,14 @@ function Stamp({ c }: { c: CallView }) {
 }
 
 export function Receipt({ c, link = true }: { c: CallView; link?: boolean }) {
+  const heading = <div className="text-lg font-bold">#{c.id} · {c.market}{c.direction ? ` ${c.direction}` : ""}</div>;
   const title = (
     <div className="flex items-start justify-between gap-3">
       <div>
-        <div className="text-lg font-bold">#{c.id} · {c.market}{c.direction ? ` ${c.direction}` : ""}</div>
+        {link ? <Link href={`/call/${c.id}`} className="block">{heading}</Link> : heading}
         <div className="text-xs dim">
-          {c.handle}{c.isBot && <span className="ml-1 border px-1" style={{ borderColor: "var(--rule)" }}>BOT</span>}
+          <Link href={`/c/${c.curator.toLowerCase()}`} className="underline">{c.handle}</Link>
+          {c.isBot && <span className="ml-1 border px-1" style={{ borderColor: "var(--rule)" }}>BOT</span>}
         </div>
       </div>
       <Stamp c={c} />
@@ -31,7 +33,7 @@ export function Receipt({ c, link = true }: { c: CallView; link?: boolean }) {
   );
   return (
     <article className="slip slip-in" aria-label={`Call ${c.id}`}>
-      {link ? <Link href={`/call/${c.id}`} className="block">{title}</Link> : title}
+      {title}
       <hr />
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
         <dt className="dim">Entry (oracle)</dt><dd className="text-right">{c.entryPrice}</dd>

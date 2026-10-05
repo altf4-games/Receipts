@@ -10,14 +10,15 @@ import type { Address } from "viem";
 import { abis, deployment, publicClient, record } from "../src/chain.js";
 
 const GQL = process.env.ENVIO_GRAPHQL ?? "http://localhost:8080/v1/graphql";
-const SECRET = process.env.ENVIO_ADMIN_SECRET ?? "testing"; // local Hasura default; the cloud endpoint needs none
+// the local Hasura needs its admin secret; the public Envio Cloud endpoint takes no secret (and must not be sent one)
+const SECRET = process.env.ENVIO_ADMIN_SECRET ?? (GQL.includes("localhost") ? "testing" : "");
 const CR = deployment.callRegistry;
 const CU = deployment.curatorRegistry;
 const SUBS = deployment.subscriptions as Address;
 const TAPE = deployment.priceTape as Address;
 
 async function gql<T>(query: string): Promise<T> {
-  const r = await fetch(GQL, { method: "POST", headers: { "content-type": "application/json", "x-hasura-admin-secret": SECRET }, body: JSON.stringify({ query }) });
+  const r = await fetch(GQL, { method: "POST", headers: { "content-type": "application/json", ...(SECRET ? { "x-hasura-admin-secret": SECRET } : {}) }, body: JSON.stringify({ query }) });
   const j = (await r.json()) as { data?: T; errors?: unknown };
   if (!j.data) throw new Error("GraphQL error: " + JSON.stringify(j.errors).slice(0, 400));
   return j.data;
