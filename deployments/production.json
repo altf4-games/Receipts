@@ -11,5 +11,9 @@
   "name": "production",
   "settlerDelay": 21600,
   "settlerV1": "0xF39358B88cF73a1d9158f00b9D5E39A04543E03f",
-  "subscriptions": "0xcbDFf5C6f618dEA573a4B0FE000AF712F85D661e"
+  "subscriptions": "0xcbDFf5C6f618dEA573a4B0FE000AF712F85D661e",
+  "priceTape": "0xC028FCBE295bFA67bD1aA17e1f467214cE0Bf814",
+  "settlerV2": "0xBdCF5A34a13617f62FFB9d3155dF3fA2939e73Dc",
+  "creForwarder": "0xB9F79d863261869B234c481D1f9A7af84AeAd192",
+  "disputeWindow": 900
 }

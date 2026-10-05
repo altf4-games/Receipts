@@ -12,6 +12,7 @@ import {
 import { botSecret, callHash, deriveSalt, inCommitWindow, jitteredHorizon, recoverParams } from "./params.js";
 import { coinflip, contrarian, fundingFade, momentum, type Decision } from "./strategies.js";
 import { fetchCloses, readFundingRate, readOracle } from "./market.js";
+import { keeperV2, type DueCall } from "./v2.js";
 
 const CALL = callAbi as Abi;
 const CURATORS = curatorsAbi as Abi;
@@ -202,16 +203,21 @@ export async function tickAll(ctx: Ctx, bots: BotRuntime[]) {
   const pairs = bots.flatMap((bot) => bot.spec.markets.map((perpId) => ({ bot, perpId })));
   const openPairs: { bot: BotRuntime; perpId: bigint; id: bigint }[] = [];
   let nextCallId = 0n;
+  let v2Active = false;
   try {
     const idRes = await ctx.pc.multicall({
       allowFailure: true,
       contracts: [
         ...pairs.map(({ bot, perpId }) => ({ address: ctx.deployment.callRegistry, abi: CALL, functionName: "openCallId", args: [bot.address, perpId] })),
         { address: ctx.deployment.callRegistry, abi: CALL, functionName: "nextCallId", args: [] },
+        { address: ctx.deployment.callRegistry, abi: CALL, functionName: "settler", args: [] },
       ],
     } as never);
     const nextRes = (idRes as { status: string; result?: unknown }[])[pairs.length];
     if (nextRes?.status === "success") nextCallId = nextRes.result as bigint;
+    const settlerRes = (idRes as { status: string; result?: unknown }[])[pairs.length + 1];
+    // SettlerV2 mode: only when the registry's active settler really is the configured SettlerV2 (never guessed)
+    if (settlerRes?.status === "success" && ctx.deployment.settlerV2 && (settlerRes.result as string).toLowerCase() === ctx.deployment.settlerV2.toLowerCase()) v2Active = true;
     (idRes as { status: string; result?: unknown }[]).slice(0, pairs.length).forEach((r, i) => {
       if (r.status !== "success") { ctx.log({ evt: "error", label: "scan", bot: pairs[i].bot.spec.handle, perpId: pairs[i].perpId, reason: "multicall item failed" }); return; }
       const id = r.result as bigint;
@@ -256,11 +262,22 @@ export async function tickAll(ctx: Ctx, bots: BotRuntime[]) {
     try { await fn(); } catch (e) { ctx.log({ evt: "error", label, ...who, reason: shortErr(e) }); }
   };
   for (const it of urgent) await run("urgent", () => actUrgent(ctx, it), { bot: it.bot.spec.handle, perpId: it.perpId });
-  for (const it of settles) await run("settle", () => actSettle(ctx, it), { bot: it.bot.spec.handle, perpId: it.perpId });
-  for (const h of humans) await run("human", () => actHuman(ctx, h), { human: h.c.curator, callId: h.id });
+  if (v2Active) {
+    // SettlerV2: unrevealed human calls are still expired; every revealed call past its horizon goes through the tape flow
+    for (const h of humans.filter((x) => x.c.status === Status.Sealed)) await run("human", () => actHuman(ctx, h), { human: h.c.curator, callId: h.id });
+    const due: DueCall[] = [...settles.map((x) => ({ id: x.id, c: x.c })), ...humans.filter((x) => x.c.status === Status.Revealed)];
+    if (due.length && budgetLeft(ctx)) {
+      try {
+        await keeperV2(ctx, due, (c, address, abi, fn, args, label, extra) => send(c, c.getKeeper(), address, abi, fn, args, label, extra), () => budgetLeft(ctx));
+      } catch (e) { ctx.log({ evt: "error", label: "v2", reason: shortErr(e) }); }
+    }
+  } else {
+    for (const it of settles) await run("settle", () => actSettle(ctx, it), { bot: it.bot.spec.handle, perpId: it.perpId });
+    for (const h of humans) await run("human", () => actHuman(ctx, h), { human: h.c.curator, callId: h.id });
+  }
   for (const f of free) await run("commit", () => actCommit(ctx, f.bot, f.perpId), { bot: f.bot.spec.handle, perpId: f.perpId });
 
-  ctx.log({ evt: "tick", ms: Date.now() - t0, bots: bots.length, txSent: ctx._sent, deferred, urgent: urgent.length, settles: settles.length, humans: humans.length, free: free.length });
+  ctx.log({ evt: "tick", ms: Date.now() - t0, bots: bots.length, txSent: ctx._sent, deferred, urgent: urgent.length, settles: settles.length, humans: humans.length, v2: v2Active, free: free.length });
 }
 
 /** One-time setup per bot: AUSD bond (from the real Agora faucet if needed), approve, register as isBot=true. */

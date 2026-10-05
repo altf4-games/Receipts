@@ -5,6 +5,10 @@ export interface Deployment {
   callRegistry: Address;
   curatorRegistry: Address;
   settlerV1: Address;
+  /** present once Phase 4 contracts are deployed; the keeper uses them only while the registry's settler is `settlerV2` */
+  settlerV2?: Address;
+  priceTape?: Address;
+  disputeWindow?: number;
   exchange: Address;
   bondToken: Address;
   minBond: number;

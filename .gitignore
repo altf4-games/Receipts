@@ -43,3 +43,8 @@ docs/
 # wrangler local secrets
 .dev.vars
 bots/.dev.vars
+
+# third-party agent skills installed locally (not part of this project)
+.agents/
+.claude/
+skills-lock.json

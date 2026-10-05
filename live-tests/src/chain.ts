@@ -18,6 +18,8 @@ import callRegistryAbi from "./abi/CallRegistry.json" with { type: "json" };
 import curatorRegistryAbi from "./abi/CuratorRegistry.json" with { type: "json" };
 import settlerAbi from "./abi/SettlerV1.json" with { type: "json" };
 import subscriptionsAbi from "./abi/Subscriptions.json" with { type: "json" };
+import priceTapeAbi from "./abi/PriceTape.json" with { type: "json" };
+import settlerV2Abi from "./abi/SettlerV2.json" with { type: "json" };
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(here, "../..");
@@ -28,6 +30,8 @@ export const abis = {
   curators: curatorRegistryAbi as Abi,
   settler: settlerAbi as Abi,
   subscriptions: subscriptionsAbi as Abi,
+  tape: priceTapeAbi as Abi,
+  settlerV2: settlerV2Abi as Abi,
 };
 
 export const deployment = JSON.parse(
@@ -36,7 +40,12 @@ export const deployment = JSON.parse(
   callRegistry: Address;
   curatorRegistry: Address;
   settlerV1: Address;
+  name?: string;
   subscriptions?: Address;
+  priceTape?: Address;
+  settlerV2?: Address;
+  creForwarder?: Address;
+  disputeWindow?: number;
   exchange: Address;
   bondToken: Address;
   minBond: number;

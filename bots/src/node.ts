@@ -22,7 +22,7 @@ function lazySigner(make: () => Signer, expected: string): () => Signer {
   };
 }
 
-export function buildNodeCtx(deployName: "production" | "staging", logFile?: string): { ctx: Ctx; bots: BotRuntime[] } {
+export function buildNodeCtx(deployName: string, logFile?: string): { ctx: Ctx; bots: BotRuntime[] } {
   const rpc = process.env.MONAD_TESTNET_RPC ?? "https://testnet-rpc.monad.xyz";
   const deployment = JSON.parse(fs.readFileSync(path.join(repoRoot, "deployments", `${deployName}.json`), "utf8")) as Deployment;
   const key = (p: string) => {

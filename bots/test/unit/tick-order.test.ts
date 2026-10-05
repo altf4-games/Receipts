@@ -10,16 +10,18 @@ import { botSecret, callHash, deriveSalt } from "../../src/params.js";
 import { Status, tickAll, type BotRuntime, type Call, type Ctx } from "../../src/tick.js";
 
 const MASTER: Hex = ("0x" + "ab".repeat(32)) as Hex;
-const D: Deployment = {
+const D: Deployment & { settlerV2: Address } = {
   chainId: 10143, callRegistry: "0x1E9b6c2e6484CcbeA63F4567905012a28Fa1753C", curatorRegistry: "0x1e917319c379fd4e62Bf3207379E3d8bb1A468AF",
   settlerV1: "0xF39358B88cF73a1d9158f00b9D5E39A04543E03f", exchange: "0x1964C32f0bE608E7D29302AFF5E61268E72080cc",
   bondToken: "0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC", minBond: 50_000_000, minHorizon: 900, maxOracleAge: 120,
+  settlerV2: "0x4400D7ca5f75C2ea4D4e99C4A5cb07Fe7e5e851C",
 };
 const NOW = 1_800_000_000n;
 const addr = (n: number) => ("0x" + n.toString(16).padStart(40, "0")) as Address;
 
-function setup(opts: { cap: number; calls: Record<string, Partial<Call>>; forceCommit?: boolean; extraCalls?: Record<string, Partial<Call>> }) {
+function setup(opts: { cap: number; calls: Record<string, Partial<Call>>; forceCommit?: boolean; extraCalls?: Record<string, Partial<Call>>; v2?: Record<string, unknown> }) {
   const sent: string[] = [];
+  const sentArgs: unknown[][] = [];
   const multicalls: number[] = [];
   const coinflip = BOTS.find((b) => b.strategy === "coinflip")!;
   const specs = [{ ...coinflip, handle: "bot:coinflip", markets: [16n, 32n] }, { ...coinflip, handle: "bot:coinflip2", markets: [16n] }];
@@ -41,6 +43,11 @@ function setup(opts: { cap: number; calls: Record<string, Partial<Call>>; forceC
     getBalance: async () => 10n ** 19n,
     readContract: async (a: { functionName: string; args: unknown[] }) => {
       if (a.functionName === "openCallId") return openId[`${(a.args[0] as string).toLowerCase()}:${a.args[1]}`] ?? 0n;
+      if (a.functionName === "settler") return opts.v2 ? D.settlerV2 : D.settlerV1;
+      if (a.functionName === "proposals") return (opts.v2 as { proposals?: Record<string, unknown[]> })?.proposals?.[String(a.args[0])] ?? [0n, 0, 0, false, false, false];
+      if (a.functionName === "firstIndexAtOrAfter") { const v = opts.v2 as { start: bigint; endIdx: bigint }; return a.args[1] === NOW - 10n ? v.endIdx : v.start; }
+      if (a.functionName === "sampleCount") return (opts.v2 as { count: bigint }).count;
+      if (a.functionName === "sampleAt") return (opts.v2 as { samples: Record<string, unknown> }).samples[String(a.args[1])];
       if (a.functionName === "nextCallId") return nextId + BigInt(Object.keys(opts.extraCalls ?? {}).length);
       if (a.functionName === "getCall") {
         const extra = (opts.extraCalls ?? {})[String(a.args[0])];
@@ -60,15 +67,15 @@ function setup(opts: { cap: number; calls: Record<string, Partial<Call>>; forceC
     call: async () => ({ data: ("0x" + "00".repeat(32) + "00".repeat(32 * 15) + (1_800_000_100n).toString(16).padStart(64, "0") + (1_800_000_100n).toString(16).padStart(64, "0")) as Hex }),
   };
   const ctx: Ctx = {
-    pc: pc as never, deployment: D, perplApi: "http://unused", masterSecret: MASTER,
+    pc: pc as never, deployment: opts.v2 ? ({ ...D, settlerV2: "0x4400D7ca5f75C2ea4D4e99C4A5cb07Fe7e5e851C", priceTape: "0x050e4F35D946BF83AcD7C1D60c9512D308c078fA", disputeWindow: 900 } as Deployment) : D, perplApi: "http://unused", masterSecret: MASTER,
     keeperAddress: addr(1),
     getKeeper: () => {
       signersBuilt.push("keeper");
-      return { account: { address: addr(1) } as never, client: { chain: {}, writeContract: async (a: { functionName: string }) => { sent.push(a.functionName); return ("0x" + sent.length.toString(16).padStart(64, "0")) as Hex; } } as never };
+      return { account: { address: addr(1) } as never, client: { chain: {}, writeContract: async (a: { functionName: string; args?: unknown[] }) => { sent.push(a.functionName); sentArgs.push(a.args ?? []); return ("0x" + sent.length.toString(16).padStart(64, "0")) as Hex; } } as never };
     },
     nowSec: () => NOW, log: () => {}, maxTxPerTick: opts.cap, opts: { forceCommit: opts.forceCommit ?? false },
   };
-  return { ctx, bots, sent, signersBuilt, multicalls };
+  return { ctx, bots, sent, sentArgs, signersBuilt, multicalls };
 }
 
 /** a Sealed call whose hash matches what bot:coinflip would have committed (so recovery succeeds) */
@@ -130,12 +137,12 @@ describe("per-tick budget goes to deadline-sensitive work first", () => {
     const s = setup({ cap: 3, forceCommit: false, calls: {} });
     s.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
     await tickAll(s.ctx, s.bots);
-    expect(s.multicalls).toEqual([4]); // 2 bots x markets (2 + 1) = 3 reads, a single multicall; no open calls => no second one
+    expect(s.multicalls).toEqual([5]); // 2 bots x markets (2 + 1) = 3 reads, a single multicall; no open calls => no second one
     const bot0 = s.bots[0].address;
     const t = setup({ cap: 3, forceCommit: false, calls: { [`${bot0.toLowerCase()}:16`]: sealedFor("bot:coinflip", bot0, 16n, 3600) } });
     t.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
     await tickAll(t.ctx, t.bots);
-    expect(t.multicalls).toEqual([4, 1]); // pairs, then the one open call
+    expect(t.multicalls).toEqual([5, 1]); // pairs, then the one open call
   });
 
   test("a signer is built only for the wallet that actually sends (keeper for a reveal, not the bots)", async () => {
@@ -182,6 +189,47 @@ describe("per-tick budget goes to deadline-sensitive work first", () => {
     s.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
     await tickAll(s.ctx, s.bots);
     expect(s.sent).toEqual(["reveal"]);
+  });
+
+  // ---- SettlerV2 mode (registry settler == SettlerV2): the keeper proposes / samples / finalizes from the tape
+  const humanRevealed = { status: Status.Revealed, perpId: 16, direction: 1, tpBps: 100, slBps: 100, entryPNS: 850_000n, entryOracleTs: NOW - 4000n, horizonEnd: NOW - 10n, priceDecimals: 1 };
+
+  test("V2: a revealed human call with its endpoint on the tape gets a PROPOSAL from the first touching sample (not V1 settle)", async () => {
+    const s = setup({
+      cap: 3, calls: {}, extraCalls: { "1": humanRevealed },
+      v2: { start: 0n, endIdx: 2n, count: 3n, samples: {
+        "0": { ts: NOW - 3000n, price: 850_100n }, "1": { ts: NOW - 2000n, price: 859_000n }, "2": { ts: NOW - 5n, price: 851_000n },
+      } },
+    });
+    s.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
+    await tickAll(s.ctx, s.bots);
+    expect(s.sent).toEqual(["propose"]);
+    expect(s.sentArgs[0]).toEqual([1n, 1]); // sample index 1 (+1.06%) touches TP first; index 2 is the endpoint and must NOT be proposed
+  });
+
+  test("V2: finalize only after the dispute window", async () => {
+    const early = setup({ cap: 3, calls: {}, extraCalls: { "1": humanRevealed }, v2: { start: 0n, endIdx: 1n, count: 2n, samples: {}, proposals: { "1": [NOW - 100n, 1, 5, false, false, false] } } });
+    early.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
+    await tickAll(early.ctx, early.bots);
+    expect(early.sent).toEqual([]); // window (900 s) still open
+    const late = setup({ cap: 3, calls: {}, extraCalls: { "1": humanRevealed }, v2: { start: 0n, endIdx: 1n, count: 2n, samples: {}, proposals: { "1": [NOW - 901n, 1, 5, false, false, false] } } });
+    late.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
+    await tickAll(late.ctx, late.bots);
+    expect(late.sent).toEqual(["finalize"]);
+  });
+
+  test("V2: no endpoint sample on the tape yet and the oracle has one => the keeper records it", async () => {
+    const s = setup({ cap: 3, calls: {}, extraCalls: { "1": humanRevealed }, v2: { start: 0n, endIdx: 2n, count: 2n, samples: {} } });
+    s.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
+    await tickAll(s.ctx, s.bots);
+    expect(s.sent).toEqual(["sample"]); // the stub oracle reports a timestamp after the horizon
+  });
+
+  test("V2: an unrevealed human call past its horizon is still expired", async () => {
+    const s = setup({ cap: 3, calls: {}, extraCalls: { "1": { ...humanRevealed, status: Status.Sealed } }, v2: { start: 0n, endIdx: 0n, count: 0n, samples: {} } });
+    s.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
+    await tickAll(s.ctx, s.bots);
+    expect(s.sent).toEqual(["expire"]);
   });
 });
 

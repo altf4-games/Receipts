@@ -1,0 +1,28 @@
+# Receipts tape-and-settle: per-target workflow settings.
+local-simulation:
+  user-workflow:
+    workflow-name: "tape-and-settle-local-simulation"
+    deployment-registry: "private"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.local.json"
+    secrets-path: ""
+
+staging-settings:
+  user-workflow:
+    workflow-name: "tape-and-settle-staging"
+    deployment-registry: "private"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.staging.json"
+    secrets-path: ""
+
+# the frozen production deployment; only meaningful once SettlerV2 is the registry's active settler
+production-settings:
+  user-workflow:
+    workflow-name: "tape-and-settle-production"
+    deployment-registry: "private"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.production.json"
+    secrets-path: ""

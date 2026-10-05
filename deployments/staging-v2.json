@@ -1,0 +1,18 @@
+{
+  "bondToken": "0xa9012a055bd4e0eDfF8Ce09f960291C09D5322dC",
+  "callRegistry": "0xc45B2C359f7CB5C913e1cA9aC0A3eb5F32aCA7Bf",
+  "chainId": 10143,
+  "curatorRegistry": "0x0d63f377f413796f3063AcCd80BdFae9182bA0A2",
+  "deployer": "0x42F4D5eD7b5da3E12a01485CA7E5663879b59aD5",
+  "exchange": "0x1964C32f0bE608E7D29302AFF5E61268E72080cc",
+  "maxOracleAge": 120,
+  "minBond": 50000000,
+  "minHorizon": 60,
+  "name": "staging-v2",
+  "settlerDelay": 60,
+  "settlerV1": "0xb5bbFD0F8552740b3F2e422a45cdd794695338f9",
+  "priceTape": "0x050e4F35D946BF83AcD7C1D60c9512D308c078fA",
+  "settlerV2": "0x4400D7ca5f75C2ea4D4e99C4A5cb07Fe7e5e851C",
+  "creForwarder": "0xB9F79d863261869B234c481D1f9A7af84AeAd192",
+  "disputeWindow": 60
+}
