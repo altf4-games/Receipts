@@ -63,7 +63,7 @@ export async function POST(req: Request) {
       if (r.status !== "success") throw new Error("MON transfer reverted");
     }
     if (needAusd) {
-      const h = await wallet.writeContract({ address: ADDR.ausd, abi: erc20Abi, functionName: "transfer", args: [to, AUSD_GRANT], gas: BigInt(70_000) });
+      const h = await wallet.writeContract({ address: ADDR.ausd, abi: erc20Abi, functionName: "transfer", args: [to, AUSD_GRANT], gas: BigInt(120_000) });
       hashes.ausd = h;
       const r = await client.waitForTransactionReceipt({ hash: h });
       if (r.status !== "success") throw new Error("AUSD transfer reverted");
