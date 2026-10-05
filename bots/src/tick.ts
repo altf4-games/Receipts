@@ -13,6 +13,7 @@ import { botSecret, callHash, deriveSalt, inCommitWindow, jitteredHorizon, recov
 import { coinflip, contrarian, fundingFade, momentum, type Decision } from "./strategies.js";
 import { fetchCloses, readFundingRate, readOracle } from "./market.js";
 import { keeperV2, type DueCall } from "./v2.js";
+import { samplePath } from "./sampling.js";
 
 const CALL = callAbi as Abi;
 const CURATORS = curatorsAbi as Abi;
@@ -185,8 +186,10 @@ async function actCommit(ctx: Ctx, bot: BotRuntime, perpId: bigint) {
  */
 export async function tickAll(ctx: Ctx, bots: BotRuntime[]) {
   const t0 = Date.now();
+  let keeperBalance: bigint | null = null;
   try {
     const kb = await ctx.pc.getBalance({ address: ctx.keeperAddress });
+    keeperBalance = kb;
     if (kb < MIN_KEEPER_BALANCE_WEI) ctx.log({ evt: "LOW_BALANCE_keeper", balanceWei: kb });
   } catch (e) {
     ctx.log({ evt: "error", label: "keeper_balance", reason: shortErr(e) }); // a flaky RPC must not abort the whole tick
@@ -228,6 +231,7 @@ export async function tickAll(ctx: Ctx, bots: BotRuntime[]) {
     ctx.log({ evt: "error", label: "scan", reason: shortErr(e) }); // whole scan failed (RPC down/limited): do nothing this tick, retry next
   }
   const humans: HumanItem[] = [];
+  const pathPerps = new Set<number>(); // markets with a call still inside its window: they need path samples on the tape (V2)
   const openIds = new Set(openPairs.map((o) => o.id));
   const windowIds: bigint[] = [];
   for (let id = nextCallId - 1n; id >= 1n && windowIds.length < HUMAN_WINDOW; id--) if (!openIds.has(id)) windowIds.push(id);
@@ -243,10 +247,12 @@ export async function tickAll(ctx: Ctx, bots: BotRuntime[]) {
         if (i >= openPairs.length) {
           // newest-first window of other calls: only unfinished ones past their horizon need the keeper
           const id = windowIds[i - openPairs.length];
+          if ((c.status === Status.Sealed || c.status === Status.Revealed) && now < c.horizonEnd) pathPerps.add(Number(c.perpId));
           if (((c.status === Status.Sealed && now > c.horizonEnd) || (c.status === Status.Revealed && now >= c.horizonEnd))) humans.push({ id, c });
           return;
         }
         const o = openPairs[i];
+        if ((c.status === Status.Sealed || c.status === Status.Revealed) && now < c.horizonEnd) pathPerps.add(Number(c.perpId));
         const it = { bot: o.bot, perpId: o.perpId, id: o.id, c };
         if (c.status === Status.Sealed && (now > c.horizonEnd || now >= c.commitTime + BigInt(Math.floor(c.horizonSecs / 2)))) urgent.push(it);
         else if (c.status === Status.Revealed && now >= c.horizonEnd) settles.push(it);
@@ -270,6 +276,12 @@ export async function tickAll(ctx: Ctx, bots: BotRuntime[]) {
       try {
         await keeperV2(ctx, due, (c, address, abi, fn, args, label, extra) => send(c, c.getKeeper(), address, abi, fn, args, label, extra), () => budgetLeft(ctx));
       } catch (e) { ctx.log({ evt: "error", label: "v2", reason: shortErr(e) }); }
+    }
+    // after the deadline-sensitive work: keep the tape dense while calls are open (one tx for all markets that need a sample)
+    if (pathPerps.size && budgetLeft(ctx)) {
+      try {
+        await samplePath(ctx, [...pathPerps], keeperBalance, (c, address, abi, fn, args, label, extra) => send(c, c.getKeeper(), address, abi, fn, args, label, extra), () => budgetLeft(ctx));
+      } catch (e) { ctx.log({ evt: "error", label: "path_sample", reason: shortErr(e) }); }
     }
   } else {
     for (const it of settles) await run("settle", () => actSettle(ctx, it), { bot: it.bot.spec.handle, perpId: it.perpId });

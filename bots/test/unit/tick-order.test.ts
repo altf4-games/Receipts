@@ -231,5 +231,33 @@ describe("per-tick budget goes to deadline-sensitive work first", () => {
     await tickAll(s.ctx, s.bots);
     expect(s.sent).toEqual(["expire"]);
   });
+
+  // ---- V2 path sampling: while a market has a call inside its window, the keeper keeps the tape dense
+  const openBotCall = (bot0: string) => ({ [`${bot0.toLowerCase()}:16`]: { perpId: 16, commitTime: NOW - 100n, horizonEnd: NOW + 3500n, horizonSecs: 3600 } });
+
+  test("V2 path sampling: an open call on a market whose tape is empty gets ONE sample transaction for that market", async () => {
+    const probe = setup({ cap: 3, calls: {} });
+    const s = setup({ cap: 3, calls: openBotCall(probe.bots[0].address), v2: { start: 0n, endIdx: 0n, count: 0n, samples: {} } });
+    s.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
+    await tickAll(s.ctx, s.bots);
+    expect(s.sent).toEqual(["sample"]);
+    expect(s.sentArgs[0]).toEqual([[16n]]);
+  });
+
+  test("V2 path sampling: a recent sample on the tape means no transaction", async () => {
+    const probe = setup({ cap: 3, calls: {} });
+    const s = setup({ cap: 3, calls: openBotCall(probe.bots[0].address), v2: { start: 0n, endIdx: 0n, count: 2n, samples: { "1": { ts: NOW - 60n, price: 1n } } } });
+    s.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
+    await tickAll(s.ctx, s.bots);
+    expect(s.sent).toEqual([]);
+  });
+
+  test("V1 mode never path-samples", async () => {
+    const probe = setup({ cap: 3, calls: {} });
+    const s = setup({ cap: 3, calls: openBotCall(probe.bots[0].address) });
+    s.ctx.cadence = { periodSecs: 3600, windowSecs: 0 };
+    await tickAll(s.ctx, s.bots);
+    expect(s.sent).not.toContain("sample");
+  });
 });
 
