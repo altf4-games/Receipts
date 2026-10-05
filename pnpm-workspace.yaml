@@ -3,3 +3,10 @@ packages:
   - bots
   - rankers
   - live-tests
+
+# pnpm 12 refuses to install if a dependency has an unreviewed install script. Reviewed here:
+allowBuilds:
+  esbuild: true # native binary download for the bundlers (wrangler, vitest)
+  workerd: true # Cloudflare's local runtime, wrangler dependency
+  sharp: false # Next.js image optimisation uses prebuilt optional binaries; the script is not needed
+  unrs-resolver: false # optional native resolver for eslint; falls back to JS
