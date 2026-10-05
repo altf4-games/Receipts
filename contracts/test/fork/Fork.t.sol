@@ -55,7 +55,13 @@ contract ForkTest is Test {
 
         // Fund the bond from the REAL Agora testnet faucet (10,000 AUSD per call). `deal` cannot find AUSD's
         // balance slot (proxy), and a faucet call is the honest path anyway.
+        // The faucet allows one request per 60 s GLOBALLY, so any other developer's request just before the fork block makes
+        // this revert with MaxFrequencyExceeded (found 2026-10-05: 2 of 11 fork tests failed that way). Step past the window
+        // for the faucet call only, then restore the real clock so oracle ages and horizons stay on real timestamps.
+        uint256 realNow = block.timestamp;
+        vm.warp(realNow + 61);
         IFaucet(FAUCET).requestFunds(curator);
+        vm.warp(realNow);
         assertGe(IERC20(AUSD).balanceOf(curator), MIN_BOND, "faucet did not fund the curator");
         vm.startPrank(curator);
         IERC20(AUSD).approve(address(curators), type(uint256).max);
