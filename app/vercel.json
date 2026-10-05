@@ -1,0 +1,1 @@
+{ "crons": [{ "path": "/api/nansen/refresh", "schedule": "10 0 * * *" }] }

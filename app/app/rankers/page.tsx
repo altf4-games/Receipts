@@ -2,6 +2,7 @@ import Link from "next/link";
 import { EXPLORER, RANKER_REGISTRY } from "@/lib/config";
 import { leaderboardData, rankerByName } from "@/lib/leaderboard";
 import { ALL_RANKERS } from "@/lib/rankers";
+import { smartMoneyBoard } from "@/lib/nansenData";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Rankers" };
@@ -14,6 +15,7 @@ export default async function Rankers({ searchParams }: PageProps<"/rankers">) {
   let data: Awaited<ReturnType<typeof leaderboardData>> | null = null;
   let error: string | null = null;
   try { data = await leaderboardData(); } catch (e) { error = (e as Error).message.split("\n")[0] ?? "error"; }
+  const sm = await smartMoneyBoard().catch(() => null);
   const rows = data ? ranker.rank(data.curators) : [];
   const receipt = data?.receipts.find((r) => r.name === ranker.name);
   return (
@@ -53,6 +55,28 @@ export default async function Rankers({ searchParams }: PageProps<"/rankers">) {
           <b>Simulation, not data</b> (seeded, <code>rankers/scripts/coinflip.ts</code>): among 30 pure coin flippers with 10 to 120 calls and 3 curators with a real edge, the share of trials where the top-ranked curator is skilled is: weak edge (58% wins, 60 calls) raw 40.7%, average per call 33.8%, luck-adjusted 46.9%; clear edge (65% wins, 100 calls) raw 99.0%, average 65.5%, luck-adjusted 92.6%. Luck adjustment mainly stops short streaks and volume from winning; with a big edge, plain summing is fine.
         </p>
       </section>
+      {sm && (
+        <section className="mt-4 slip text-sm" aria-label="Beats smart money">
+          <div className="font-bold">Beats smart money <span className="text-xs font-normal dim">· Nansen</span></div>
+          <p className="dim mt-1">
+            Ranks curators by the Wilson lower bound of their win rate on calls made <i>against</i> Nansen Smart Money positioning (net long vs short value of new Hyperliquid positions in the 24 h before the commit). Following the crowd and being right is cheap; this rewards being right against it. Needs 3 settled calls against the lean. It is computed here from a stored Nansen snapshot, so it is not registered on chain like the rankers above.
+          </p>
+          <table className="mt-2 w-full">
+            <thead><tr className="dim text-left"><th className="w-8">#</th><th>Curator</th><th className="text-right">Against: won</th><th className="text-right">With: won</th></tr></thead>
+            <tbody>
+              {sm.ranked.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.rank ?? "–"}</td>
+                  <td><Link href={`/c/${r.id}`} className="underline">{r.handle}</Link></td>
+                  <td className="text-right">{r.detail.winsAgainst}/{r.detail.against}{r.score !== null && <span className="dim"> ({(r.score * 100).toFixed(0)}%)</span>}</td>
+                  <td className="text-right">{r.detail.winsWith}/{r.detail.with}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-3 text-xs dim">{sm.fetchedAt ? `Nansen snapshot as of ${new Date(sm.fetchedAt * 1000).toISOString().replace("T", " ").slice(0, 16)}Z. ` : "No Nansen snapshot stored yet. "}Smart Money perp data covers Hyperliquid (Nansen has no Perpl feed), only the trailing 7 days are available, so calls sealed before I started storing it on Oct 5 are not compared.</p>
+        </section>
+      )}
       {error && <div role="alert" className="slip mt-4 text-sm">Could not read the indexer ({error}). Reload in a few seconds.</div>}
       {data && (
         <section className="mt-4 slip text-sm" aria-label={`${ranker.name} ranking`}>
