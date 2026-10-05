@@ -26,14 +26,14 @@ function Bridge() {
   return null;
 }
 
-/** Wraps the app in Privy (Google or email sign-in with an embedded wallet) when NEXT_PUBLIC_PRIVY_APP_ID is set; otherwise renders the app unchanged. */
+/** Wraps the app in Privy (email sign-in with an embedded wallet) when NEXT_PUBLIC_PRIVY_APP_ID is set; otherwise renders the app unchanged. */
 export function PrivyRoot({ children }: { children: React.ReactNode }) {
   if (!APP_ID) return <>{children}</>;
   return (
     <PrivyProvider
       appId={APP_ID}
       config={{
-        loginMethods: ["google", "email"],
+        loginMethods: ["email"],
         embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" } },
         defaultChain: monad,
         supportedChains: [monad],
