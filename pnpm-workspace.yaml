@@ -10,3 +10,8 @@ allowBuilds:
   workerd: true # Cloudflare's local runtime, wrangler dependency
   sharp: false # Next.js image optimisation uses prebuilt optional binaries; the script is not needed
   unrs-resolver: false # optional native resolver for eslint; falls back to JS
+  # Privy login pulls in optional native speedups and a telemetry postinstall: none are needed, so install scripts stay off
+  "@reown/appkit": false
+  bufferutil: false
+  keccak: false
+  utf-8-validate: false
