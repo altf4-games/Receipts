@@ -29,4 +29,14 @@ export const curatorRegistryAbi = [
 
 export const subscriptionsAbi = [
   { type: "function", name: "isActive", stateMutability: "view", inputs: [{ name: "subscriber", type: "address" }, { name: "curator", type: "address" }], outputs: [{ type: "bool" }] },
+  { type: "function", name: "ratePerSec", stateMutability: "view", inputs: [{ name: "curator", type: "address" }], outputs: [{ type: "uint128" }] },
+  { type: "function", name: "activeUntil", stateMutability: "view", inputs: [{ name: "subscriber", type: "address" }, { name: "curator", type: "address" }], outputs: [{ type: "uint64" }] },
+  { type: "function", name: "subscribe", stateMutability: "nonpayable", inputs: [{ name: "curator", type: "address" }, { name: "amount", type: "uint256" }], outputs: [] },
+  { type: "function", name: "cancel", stateMutability: "nonpayable", inputs: [{ name: "curator", type: "address" }], outputs: [{ type: "uint256" }] },
+] as const;
+
+export const erc20Abi = [
+  { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "a", type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "allowance", stateMutability: "view", inputs: [{ name: "o", type: "address" }, { name: "s", type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "s", type: "address" }, { name: "v", type: "uint256" }], outputs: [{ type: "bool" }] },
 ] as const;

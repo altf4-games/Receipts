@@ -1,6 +1,6 @@
 import { createPublicClient, defineChain, http, type Address, type Hex } from "viem";
 import { callRegistryAbi, curatorRegistryAbi } from "./abi";
-import { ADDR, CHAIN_ID, MARKETS, RPC_URL } from "./config";
+import { CHAIN_ID, DEPLOYMENTS, MARKETS, RPC_URL, type DeploymentName } from "./config";
 
 export const monadTestnet = defineChain({
   id: CHAIN_ID,
@@ -47,22 +47,22 @@ function fmtPrice(pns: bigint, decimals: number): string {
 }
 
 type Raw = Awaited<ReturnType<typeof readRaw>>;
-async function readRaw(id: bigint) {
-  return client.readContract({ address: ADDR.callRegistry, abi: callRegistryAbi, functionName: "getCall", args: [id] });
+async function readRaw(dep: DeploymentName, id: bigint) {
+  return client.readContract({ address: DEPLOYMENTS[dep].callRegistry, abi: callRegistryAbi, functionName: "getCall", args: [id] });
 }
 
 const handleCache = new Map<string, { handle: string; isBot: boolean }>();
-async function curatorInfo(a: Address) {
-  const hit = handleCache.get(a);
+async function curatorInfo(dep: DeploymentName, a: Address) {
+  const hit = handleCache.get(dep + a);
   if (hit) return hit;
-  const c = await client.readContract({ address: ADDR.curatorRegistry, abi: curatorRegistryAbi, functionName: "getCurator", args: [a] });
+  const c = await client.readContract({ address: DEPLOYMENTS[dep].curatorRegistry, abi: curatorRegistryAbi, functionName: "getCurator", args: [a] });
   const v = { handle: c.handle, isBot: c.isBot };
-  handleCache.set(a, v); // handles never change
+  handleCache.set(dep + a, v); // handles never change
   return v;
 }
 
-async function toView(id: number, c: Raw): Promise<CallView> {
-  const who = await curatorInfo(c.curator);
+async function toView(dep: DeploymentName, id: number, c: Raw): Promise<CallView> {
+  const who = await curatorInfo(dep, c.curator);
   const revealed = c.status === 2 || c.status === 3;
   return {
     id,
@@ -98,19 +98,19 @@ async function cached<T>(key: string, ms: number, fn: () => Promise<T>): Promise
   return v;
 }
 
-export async function callCount(): Promise<number> {
-  return cached("count", 8_000, async () => Number(await client.readContract({ address: ADDR.callRegistry, abi: callRegistryAbi, functionName: "nextCallId" })) - 1);
+export async function callCount(dep: DeploymentName = "production"): Promise<number> {
+  return cached("count" + dep, 8_000, async () => Number(await client.readContract({ address: DEPLOYMENTS[dep].callRegistry, abi: callRegistryAbi, functionName: "nextCallId" })) - 1);
 }
 
-export async function getCallView(id: number): Promise<CallView | null> {
-  const n = await callCount();
+export async function getCallView(id: number, dep: DeploymentName = "production"): Promise<CallView | null> {
+  const n = await callCount(dep);
   if (!Number.isInteger(id) || id < 1 || id > n) return null;
-  return cached(`call:${id}`, 8_000, async () => toView(id, await readRaw(BigInt(id))));
+  return cached(`call:${dep}:${id}`, 8_000, async () => toView(dep, id, await readRaw(dep, BigInt(id))));
 }
 
-export async function recentCalls(limit: number): Promise<{ total: number; calls: CallView[] }> {
-  const total = await callCount();
+export async function recentCalls(limit: number, dep: DeploymentName = "production"): Promise<{ total: number; calls: CallView[] }> {
+  const total = await callCount(dep);
   const ids = Array.from({ length: Math.min(limit, total) }, (_, i) => total - i);
-  const calls = await Promise.all(ids.map((id) => getCallView(id)));
+  const calls = await Promise.all(ids.map((id) => getCallView(id, dep)));
   return { total, calls: calls.filter((c): c is CallView => c !== null) };
 }
