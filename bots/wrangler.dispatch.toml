@@ -1,0 +1,17 @@
+name = "receipts-dispatch"
+main = "src/dispatch.ts"
+compatibility_date = "2026-09-01"
+workers_dev = true
+preview_urls = false
+
+[observability]
+enabled = true
+
+[vars]
+REPO = "altf4-games/Receipts"
+WORKFLOW = "keeper.yml"
+REF = "main"
+
+# every 5 minutes, offset from the keeper Workers (0 and 2) so nothing fires together
+[triggers]
+crons = ["1-59/5 * * * *"]
