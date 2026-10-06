@@ -1,0 +1,40 @@
+name: keeper
+
+# Runs one stateless keeper/bot tick every 5 minutes (reveal, settle, propose, finalize, path samples, commits).
+# This is the primary runner. The Cloudflare Workers in bots/ run the same tick as a backup: a tick is idempotent, so
+# two runners racing is harmless (a duplicate transaction is skipped by the gas estimate).
+# The keys below are TESTNET keys for the labelled bot curators and the keeper; they are repository secrets.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keeper
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter bots...
+      - name: one tick (production)
+        working-directory: bots
+        env:
+          BOT_SECRET: ${{ secrets.BOT_SECRET }}
+          KEEPER_PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+          BOT_MOMENTUM_PRIVATE_KEY: ${{ secrets.BOT_MOMENTUM_PRIVATE_KEY }}
+          BOT_FUNDING_PRIVATE_KEY: ${{ secrets.BOT_FUNDING_PRIVATE_KEY }}
+          BOT_COINFLIP_PRIVATE_KEY: ${{ secrets.BOT_COINFLIP_PRIVATE_KEY }}
+          BOT_CONTRARIAN_PRIVATE_KEY: ${{ secrets.BOT_CONTRARIAN_PRIVATE_KEY }}
+        run: pnpm exec tsx scripts/run-once.ts production
