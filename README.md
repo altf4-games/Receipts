@@ -8,6 +8,10 @@ Entered in the **Social, Attention & Culture** track of Monad Metropolis (2026).
 
 > **Status: working on Monad testnet.** Deployed and verified: the registries, both settlers, the price tape and Subscriptions. Running unattended: four labelled bot curators and a keeper (a GitHub Actions cron every 5 minutes, with Cloudflare Workers as a backup), and a Next.js app at https://receipts-app-rho-ashy.vercel.app with a live feed, per-second subscriptions, in-browser verification and email sign-in with a built-in wallet. SettlerV2, the settler that scores calls from the Chainlink CRE price tape, has been the active production settler since Oct 5, 2026 (tx `0xca4104eb11d237800655115357d04c17791f707d2f63c45b2e16298782559bed`). Also built: an Envio indexer (Monad testnet and mainnet), open ranker algorithms with an onchain registry, and the Nansen integration. Not built: the mainnet cross-chain flow.
 
+## Try it
+
+Open https://receipts-app-rho-ashy.vercel.app, press **Sign in** (any email, Privy creates a built-in wallet) or connect MetaMask on Monad testnet, then go to `/me` and press **Get free test money** (0.25 test MON for gas and 200 test dollars; nothing costs real money). Open a receipt marked *Sealed* from the curator `pradyum`, subscribe for ten minutes and press **Sign and unlock**: you get the call and a green "matches sealed commit at block N", computed in your browser. `/call/36` is a bot call settled through the price tape (chart, flags, dispute window), `/rankers` has the open rankers and the Nansen table, and `/new` publishes your own call.
+
 ## Deployed contracts (Monad testnet, chain 10143)
 
 | Contract | Address | Verified |
@@ -94,6 +98,49 @@ The bots and the keeper must run unattended, because an unrevealed call scores �
 `indexer/` is an Envio HyperIndex project covering the Receipts contracts on Monad testnet and Perpl's Exchange on testnet and mainnet. It derives per-curator scoreboards (equity curve, max drawdown, sums for confidence bounds), per-market stats, subscription revenue and daily Perpl analytics, and it flags a curator's own Perpl positions opened while a call was open. I check it against the chain with a live test that pins one block, waits for the indexer to reach it and compares every row (see `indexer/README.md`).
 
 `rankers/` holds the ranking algorithms as pure functions (`raw`, `mean-per-call`, `luck-adjusted`, `hit-rate-wilson`). A ranker is registered on chain with its code location and git commit, so anyone can rerun the exact code. The README there reports a coin-flip simulation, including the case where the luck-adjusted rule does *not* beat plain summing.
+
+## What a transaction costs
+
+Gas on Monad is billed on the gas limit, not on gas used. These are medians from the Foundry unit tests (mock exchange); the keeper sends limit = estimate × 1.15, so a real transaction costs about 15% more. MON price column: gas × 102 gwei (the testnet price on Oct 6).
+
+| Action | Gas (median) | ≈ MON |
+|---|---|---|
+| `commit` (oracle snapshot included) | 273,000 | 0.028 |
+| `reveal` | 41,000 | 0.004 |
+| `expire` | 49,000 | 0.005 |
+| `settle` (SettlerV1) | 145,000 | 0.015 |
+| `PriceTape.sample` (one market) | 118,000 | 0.012 |
+| `propose` (SettlerV2) | 85,000 | 0.009 |
+| `dispute` | 62,000 | 0.006 |
+| `finalize` | 64,000 | 0.007 |
+| `subscribe` | 120,000 | 0.012 |
+| `cancel` | 58,000 | 0.006 |
+| `claim` | 50,000 | 0.005 |
+
+Keeping the tape dense (one sample about every 15 minutes for each market that has an open call) costs roughly 3 to 5 MON a day at the current call volume, which is why the keeper only does it while a call is open and only when its own balance is above 1 MON.
+
+## Tests, and what they caught
+
+| Suite | Count |
+|---|---|
+| Contract unit tests (Foundry, with fuzz tests and mutation checks on Subscriptions and SettlerV2) | 135 |
+| Fork tests against the real Perpl Exchange | 11 |
+| Bots unit tests (tick order, V2 keeper, path sampling) | 42 |
+| Rankers (including a drift test: the app's copy of the rankers equals `rankers/src`) | 38 |
+| Indexer (scoring maths and handlers with simulated events) | 18 |
+| CRE workflow logic (bun) | 12 |
+| Live tests that send real transactions on Monad testnet (13 core contracts, 4 subscriptions, 4 delivery API, 4 price tape and real CRE workflow, 2 keeper fallback, 2 human curators, 2 indexer vs chain) | 31, full output in `live-tests/results/2026-10-06.txt` |
+
+Every claim in this README that says "tested live" means a real transaction and a read-back, not a mock. What they caught, in the order I found it:
+- **Truncated market id (freeze review).** `Call.perpId` is a `uint32` but the allowlist accepted any `uint256`, so a large id would have truncated on commit and stuck a curator's slot and bond forever. Fixed with a guard and a test.
+- **Instant settler swap (freeze review).** The owner could replace the settler at once. Now timelocked (6 hours) and `Ownable2Step`; live-tested.
+- **The keeper ignored human curators.** My first real call (#19) would never have been settled, because the keeper only watched the bots' calls. Found by using the product; fixed with a sweep of the newest calls and a live test with a fresh wallet.
+- **Public RPC rate limit.** A parallel scan of 12 reads hit "requests limited to 15/sec" and failed 4 of 5 live tests. Replaced with one Multicall3 call.
+- **First CRE broadcast cost 0.08 MON** because I guessed an 800,000 gas limit. Limits are now sized from measured gas, since Monad bills the limit.
+- **Starter funds reverted** on the first live call: 70,000 gas is not enough for a first-time token recipient (72,918 needed).
+- **Fork tests were flaky** because the Agora faucet allows one request per 60 s for everybody; 2 of 11 failed when someone else had just used it.
+- **Indexer details**: a contract cannot start before its chain's start block; simulated events below a start block are dropped; a schema change silently lost entity data until the indexer was stopped and restarted. A live test now compares every indexed row with the chain.
+- **Cloudflare Free plan outages** (Oct 4 and Oct 6), described above.
 
 ## Layout
 

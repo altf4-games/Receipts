@@ -1,0 +1,708 @@
+# Live suite runs, 2026-10-06 (IST), Monad testnet. Full untruncated output; three files in order. First run: some tests failed on a wrong test assumption (T4), RPC receipt timeouts (T1) and a leftover call (keeper V2); see the reruns.
+
+## Run 1 (13:17-14:12 IST)
+=== staging sweep (13:17:53 IST)
+{"evt":"tick","ms":1231,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":false,"free":12}
+{"at":"2026-10-06T07:47:55.482Z","deploy":"staging","evt":"tick","ms":1231,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":false,"free":12}
+exit 0
+=== L1-L6 contracts staging (13:17:55 IST)
+
+ RUN  v2.1.9 /Users/pradyum/Projects/monad-metropolis/receipts/live-tests
+
+stdout | test/staging.live.test.ts > STAGING live: Receipts core on Monad testnet
+[live] run.start {"at":"2026-10-06T07:47:56.477Z","name":"run.start","callRegistry":"0xda5693e16102f9fAfedE5e8A1dd3595D72665BeA","curatorRegistry":"0x9F11f5b79e5e91Fb7F73DD911F31D323d545ba63","settler":"0x585C1E9358e9ce0c91676708d6989927192cd242","exchange":"0x1964C32f0bE608E7D29302AFF5E61268E72080cc","block":"68630265"}
+
+stdout | test/staging.live.test.ts > STAGING live: Receipts core on Monad testnet > L1 commit snapshots the real oracle; off-chain hash == on-chain hashCall; entry matches independent historical reads (A1)
+[live] L1.commit {"at":"2026-10-06T07:48:02.277Z","name":"L1.commit","id":"124","tx":"0x6ace2a330973116fba75fb46ad3b0c39a71b75484dca32d02cdf33080897692d","block":"68630280","entryPNS":"855379","entryOracleTs":"1791272868","decimals":1,"oracleAtBminus1":"855379","oracleAtB":"855379","matched":"B-1"}
+
+stdout | test/staging.live.test.ts > STAGING live: Receipts core on Monad testnet > setup: commit ETH (will expire unrevealed) and SOL (invalid params) on the same timeline
+[live] setup.commits {"at":"2026-10-06T07:48:04.810Z","name":"setup.commits","eth":"125","ethTx":"0x2d7f7a6c3da1e8563727a80a3d48aa2a457102dbca779849daa50d263fc20862","sol":"126","solTx":"0x0a4fe9346cee0c5e53500a5604edaf477f857cad8a56c5fdad610254b84ccae7"}
+
+stdout | test/staging.live.test.ts > STAGING live: Receipts core on Monad testnet > L2 second open call on the same market reverts, as a real mined revert (A2)
+[live] L2.revert {"at":"2026-10-06T07:48:06.443Z","name":"L2.revert","tx":"0xab1c01a7599f7a162520f77a79bf0378fe2f50d139d2abdc9428cc49d3e023f9","status":"reverted","block":"68630294"}
+
+stdout | test/staging.live.test.ts > STAGING live: Receipts core on Monad testnet > L3 wrong salt reveal reverts (real tx); the right reveal by a THIRD PARTY passes; measure Monad gas-on-limit
+[live] L3.badSalt {"at":"2026-10-06T07:48:08.421Z","name":"L3.badSalt","tx":"0xaa13ffdc087ed267e0424d50b64a6c40e2763ab8fae05a5478e940eaf7da5346","status":"reverted"}
+
+stdout | test/staging.live.test.ts > STAGING live: Receipts core on Monad testnet > L3 wrong salt reveal reverts (real tx); the right reveal by a THIRD PARTY passes; measure Monad gas-on-limit
+[live] L3.reveal.thirdParty.gasOnLimit {"at":"2026-10-06T07:48:10.859Z","name":"L3.reveal.thirdParty.gasOnLimit","tx":"0xd286097ca387e815f83c2c683e85689f4e218fec0493de472e845f641d31dc2b","paidWei":"4717296000000000","gasUsed":"46248","gasLimit":"46248","effectiveGasPrice":"102000000000","equalsGasUsedTimesPrice":true,"equalsGasLimitTimesPrice":true}
+
+stdout | test/staging.live.test.ts > STAGING live: Receipts core on Monad testnet > L5 hash matches but params invalid => Invalid, penalty score, slot freed (A5)
+[live] L5.invalid {"at":"2026-10-06T07:48:12.877Z","name":"L5.invalid","id":"126","tx":"0x5d371bd9827f0989aa0ebf89440d68ab065cd9fcc85800ca554b9d9aa9f70b09","status":"Invalid","score":-3000}
+
+stdout | test/staging.live.test.ts > STAGING live: Receipts core on Monad testnet > L4 never-revealed call: expire reverts inside the window, then scores the -30% penalty and frees the slot (A3)
+[live] L4.expire {"at":"2026-10-06T07:49:05.984Z","name":"L4.expire","id":"125","tx":"0x2291f277af8f6a1e4a21dc644df4e7de97770ae8088fd27b69920fa1358dde68","status":"Expired","score":-3000}
+
+stdout | test/staging.live.test.ts > STAGING live: Receipts core on Monad testnet > L6b settle after the horizon: score equals an independent recompute from historical oracle reads
+[live] L6.settle {"at":"2026-10-06T07:50:23.085Z","name":"L6.settle","id":"124","tx":"0x13542da32b25c8972743bd70f938cbac126d889daa113d55e2e1a36e402446d3","block":"68630742","entryPNS":"855379","exitAtBminus1":"855590","exitAtB":"855590","exitTsAtB":"1791273018","horizonEnd":"1791273000","scoreOnchain":2,"recomputed":["2","2"],"flags":1}
+
+stdout | test/staging.live.test.ts > STAGING live: Receipts core on Monad testnet > A14 settler rotation is TIMELOCKED live: propose -> early activate reverts -> old settler still rules -> activate -> old settler powerless -> rotate back
+[live] A14.propose {"at":"2026-10-06T07:50:25.746Z","name":"A14.propose","tx":"0x0e7917a32f153b4a8a01467715b90fcd6a4440ae40ea811fc98cffecb718d2a7","pending":"0xEf77a024c296C6539436f699Aa16140047580D8e","eta":"1791273084","delay":"60"}
+
+stdout | test/staging.live.test.ts > STAGING live: Receipts core on Monad testnet > A14 settler rotation is TIMELOCKED live: propose -> early activate reverts -> old settler still rules -> activate -> old settler powerless -> rotate back
+[live] A14.activate {"at":"2026-10-06T07:51:26.843Z","name":"A14.activate","tx":"0x4050ef4e8b9745961b9c56c754f7810359e4ade8257f85f8ab7fea01e2dbf326","newSettler":"0xEf77a024c296C6539436f699Aa16140047580D8e"}
+
+stdout | test/staging.live.test.ts > STAGING live: Receipts core on Monad testnet > A14 settler rotation is TIMELOCKED live: propose -> early activate reverts -> old settler still rules -> activate -> old settler powerless -> rotate back
+[live] A14.rotateBack {"at":"2026-10-06T07:52:29.816Z","name":"A14.rotateBack","proposeTx":"0x4c5bd035065565e1d138e5e5db2ae594b2d9cf616b8469e9a285c770a2612b0c","activateTx":"0xafd2e4f133ec1257f5afe631c7453adf5edd874e3e92053452fea1c4ded3bab2"}
+
+stdout | test/staging.live.test.ts > STAGING live: Receipts core on Monad testnet > gas report (Monad charges the gas LIMIT, not gas used)
+[live] gas.report {"at":"2026-10-06T07:52:30.208Z","name":"gas.report","gasLog":{"commit":{"estimate":"267127","limit":"320553","used":"320553"},"commit(eth)":{"estimate":"249993","limit":"299992","used":"299992"},"reveal":{"estimate":"38540","limit":"46248","used":"46248"},"reveal(invalid)":{"estimate":"61793","limit":"74152","used":"74152"},"expire":{"estimate":"58105","limit":"69726","used":"69726"},"settle":{"estimate":"132800","limit":"159360","used":"159360"}},"keeperFeeCheck":{"paidWei":"4717296000000000","gasUsed":"46248","gasLimit":"46248","effectiveGasPrice":"102000000000","equalsGasUsedTimesPrice":true,"equalsGasLimitTimesPrice":true}}
+
+ ✓ test/staging.live.test.ts (13 tests) 274297ms
+   ✓ STAGING live: Receipts core on Monad testnet > L1 commit snapshots the real oracle; off-chain hash == on-chain hashCall; entry matches independent historical reads (A1) 2346ms
+   ✓ STAGING live: Receipts core on Monad testnet > setup: commit ETH (will expire unrevealed) and SOL (invalid params) on the same timeline 2532ms
+   ✓ STAGING live: Receipts core on Monad testnet > L2 second open call on the same market reverts, as a real mined revert (A2) 1836ms
+   ✓ STAGING live: Receipts core on Monad testnet > L3 wrong salt reveal reverts (real tx); the right reveal by a THIRD PARTY passes; measure Monad gas-on-limit 4212ms
+   ✓ STAGING live: Receipts core on Monad testnet > L5 hash matches but params invalid => Invalid, penalty score, slot freed (A5) 1805ms
+   ✓ STAGING live: Receipts core on Monad testnet > L6a settle before the horizon reverts (TooEarly) 555ms
+   ✓ STAGING live: Receipts core on Monad testnet > L4 never-revealed call: expire reverts inside the window, then scores the -30% penalty and frees the slot (A3) 52735ms
+   ✓ STAGING live: Receipts core on Monad testnet > L6b settle after the horizon: score equals an independent recompute from historical oracle reads 77206ms
+   ✓ STAGING live: Receipts core on Monad testnet > A14 settler rotation is TIMELOCKED live: propose -> early activate reverts -> old settler still rules -> activate -> old settler powerless -> rotate back 126276ms
+   ✓ STAGING live: Receipts core on Monad testnet > owner transfer is two-step (propose does not move ownership) -- read-only check 391ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  13:17:55
+   Duration  274.51s (transform 35ms, setup 0ms, collect 128ms, tests 274.30s, environment 0ms, prepare 20ms)
+
+exit 0
+=== L7 subscriptions (13:22:30 IST)
+
+ RUN  v2.1.9 /Users/pradyum/Projects/monad-metropolis/receipts/live-tests
+
+stdout | test/subscriptions.live.test.ts > Subscriptions live (staging) > L7b: isActive transitions, accrual and exact refund match an independent recompute
+[live] subs.subscribe {"at":"2026-10-06T07:52:41.004Z","name":"subs.subscribe","tx":"0x65a5dc98c82616118b6b7c5c0103ac9ace810b114e2782c2840b68cd2bf4cf19","deposit":"900000","start":"1791273160"}
+
+stdout | test/subscriptions.live.test.ts > Subscriptions live (staging) > L7b: isActive transitions, accrual and exact refund match an independent recompute
+[live] subs.cancel {"at":"2026-10-06T07:53:13.062Z","name":"subs.cancel","tx":"0xb68fc97b5bde363daa8b8befdd53041a4c03019f25adf56f2fd2446508f1baa6","refunded":"590000","paidToCurator":"310000"}
+
+stdout | test/subscriptions.live.test.ts > Subscriptions live (staging) > L7b: isActive transitions, accrual and exact refund match an independent recompute
+[live] subs.claim {"at":"2026-10-06T07:53:15.063Z","name":"subs.claim","tx":"0xf71c56564290a1783e2aeb4233b5d69f252280430594d1dc9781e2fc1ee48940","amount":"310000"}
+
+stdout | test/subscriptions.live.test.ts > Subscriptions live (staging) > L7c: expiry flips isActive, claim pays the full deposit, cancel afterwards refunds 0
+[live] subs.expiry {"at":"2026-10-06T07:53:40.148Z","name":"subs.expiry","subscribeTx":"0xb294fa671bd28c17d80479de9880a75741df6fbbb780dbd69d784dcdea531243","claimTx":"0xfc90ca04417ffb1863126d0cd415cce0c01d021d14e6e8d489a0a05a7c88391c","cancelTx":"0x838d2d24a397a72be1302784ea2744e1e867f2ef321453acc8cdfbb3ed56cee9","deposit":"200000"}
+
+stdout | test/subscriptions.live.test.ts > Subscriptions live (staging) > L7d: subscribeFor, payer pays and beneficiary owns, then top-up keeps the stream's rate
+[live] subs.subscribeFor {"at":"2026-10-06T07:53:50.012Z","name":"subs.subscribeFor","subscribeTx":"0x70dd27bd8dfe69478f6d86716af5df4139446c8c9f4b6af1c50be8b454cede2e","topUpTx":"0xdda5478bf282f8c14fc14130804a102d791a480e02b2b18fda4e2c0d41147bda","cancelTx":"0x66e4265d791f1435fa628a9a51740089963593ab196e2d8ed3da3747dec50d08"}
+
+ ✓ test/subscriptions.live.test.ts (4 tests) 79361ms
+   ✓ Subscriptions live (staging) > L7a: guards (unregistered curator, below one second, not accepting) 2074ms
+   ✓ Subscriptions live (staging) > L7b: isActive transitions, accrual and exact refund match an independent recompute 36045ms
+   ✓ Subscriptions live (staging) > L7c: expiry flips isActive, claim pays the full deposit, cancel afterwards refunds 0 25085ms
+   ✓ Subscriptions live (staging) > L7d: subscribeFor, payer pays and beneficiary owns, then top-up keeps the stream's rate 9863ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  13:22:30
+   Duration  79.59s (transform 30ms, setup 0ms, collect 134ms, tests 79.36s, environment 0ms, prepare 23ms)
+
+exit 0
+=== L8 delivery (13:23:50 IST)
+
+ RUN  v2.1.9 /Users/pradyum/Projects/monad-metropolis/receipts/live-tests
+
+stdout | test/delivery.live.test.ts > L8 delivery API (deployed app, staging contracts)
+[live] L8.commit {"at":"2026-10-06T07:53:52.950Z","name":"L8.commit","id":"127","tx":"0x29ac7ab51df96574033b12826f73ca617a4ee4d746c18375688b706ec18055a3"}
+
+stdout | test/delivery.live.test.ts > L8 delivery API (deployed app, staging contracts) > subscriber gets the plaintext; it verifies against the on-chain hash; tampering fails; replay and expiry refused
+[live] L8.subscribe {"at":"2026-10-06T07:53:59.219Z","name":"L8.subscribe","tx":"0x2f39c033392200437aa8da367c782824c5eaa254f3933aabd72acd23e6f165b8"}
+
+stdout | test/delivery.live.test.ts > L8 delivery API (deployed app, staging contracts) > subscriber gets the plaintext; it verifies against the on-chain hash; tampering fails; replay and expiry refused
+[live] L8.cancelled {"at":"2026-10-06T07:54:01.792Z","name":"L8.cancelled","tx":"0x45b2f23578a3efbda3384bb091ca20af2e0275a6d832855d4bcf9dae50ae5fc2"}
+
+stdout | test/delivery.live.test.ts > L8 delivery API (deployed app, staging contracts) > after reveal the call is public; cleanup settles it
+[live] L8.public {"at":"2026-10-06T07:54:03.621Z","name":"L8.public","reveal":"0x794141894bf9280fbca8b098969f8a4a4e2cf849c25b4a964f7827e2cdcbefc3"}
+
+stdout | test/delivery.live.test.ts > L8 delivery API (deployed app, staging contracts) > after reveal the call is public; cleanup settles it
+[live] L8.settled {"at":"2026-10-06T07:56:15.160Z","name":"L8.settled","tx":"0x5ad6c98ed89a317ad5ef7f69aa6588a47018a1cd49c7c1027e905f86e847a636"}
+
+ ✓ test/delivery.live.test.ts (4 tests) 144726ms
+   ✓ L8 delivery API (deployed app, staging contracts) > upload: wrong plaintext is rejected, right plaintext stored 2500ms
+   ✓ L8 delivery API (deployed app, staging contracts) > non-subscribers are denied (no signature, stranger, signed but not subscribed) 1353ms
+   ✓ L8 delivery API (deployed app, staging contracts) > subscriber gets the plaintext; it verifies against the on-chain hash; tampering fails; replay and expiry refused 4217ms
+   ✓ L8 delivery API (deployed app, staging contracts) > after reveal the call is public; cleanup settles it 133368ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  13:23:50
+   Duration  144.93s (transform 27ms, setup 0ms, collect 117ms, tests 144.73s, environment 0ms, prepare 19ms)
+
+exit 0
+=== T1-T4 tape + CRE (13:26:15 IST)
+
+ RUN  v2.1.9 /Users/pradyum/Projects/monad-metropolis/receipts/live-tests
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T1 the tape records exactly the Exchange's oracle (independent raw decode at the tx block or the one before)
+[live] tape.sampled {"at":"2026-10-06T07:56:18.956Z","name":"tape.sampled","tx":"0x37c0c8f6d9b18c4330390d21bd1fcb05a34192d0d839fd0f92c12b4bc23e10e5","index":"17","price":"856087","oracleTs":"1791273370","matchedBlock":"B"}
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T2 a forged report is refused: only the CRE forwarder may call onReport (tape and settler)
+[live] v2.forged {"at":"2026-10-06T07:56:19.444Z","name":"v2.forged","ok":true}
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T3 keeper path: a real call is scored from the tape; a wrong proposal is overturned by a dispute when a real touch happened
+[live] v2.call.keeper {"at":"2026-10-06T07:56:22.089Z","name":"v2.call.keeper","id":"5","commit":"0x90e8d0bccd170924aabb3327cef1326b6f81a5fb657ecc634a8135bffe6a3dcb","reveal":"0x3d7fd260fbe46918153bed1bda3638b186158671b98d1fd8df1a4a61562b10e2","entryPNS":"856087","entryTs":"1791273370","horizonEnd":"1791273530"}
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T3 keeper path: a real call is scored from the tape; a wrong proposal is overturned by a dispute when a real touch happened
+[v2/keeper] path samples 3, touch at index 19 (-4 bps), endpoint index 21 (-6 bps), expected score -1
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T3 keeper path: a real call is scored from the tape; a wrong proposal is overturned by a dispute when a real touch happened
+[live] v2.dispute {"at":"2026-10-06T07:59:44.854Z","name":"v2.dispute","id":"5","propose":"0xc3ee10801df621167b978e657656900185a9c8af5083d45c5e0c7c2574d8b736","dispute":"0xb782bc6a4180e809a1b318b340b7ee979214f18d6a5de47f04b32517cdc26563","touchIndex":"19"}
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T3 keeper path: a real call is scored from the tape; a wrong proposal is overturned by a dispute when a real touch happened
+[live] v2.finalize.keeper {"at":"2026-10-06T08:00:45.967Z","name":"v2.finalize.keeper","id":"5","tx":"0x9c211f8fcdfd67181566c1381d912a9f620c983a92c1ac06b14fb129404631eb"}
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T4 CRE path: the real CRE workflow (cre workflow simulate --broadcast) proposes the settlement; score == independent recomputation
+[live] v2.call.cre {"at":"2026-10-06T08:00:50.333Z","name":"v2.call.cre","id":"6","commit":"0x40d833021546cbe0c8361f2b7762aaff0dc58afe8fadd45ccac55ba3c7cbc2f4","reveal":"0x598c7945c23016019f94090ef0d7774baf65ca5d26ab74deee0a72593cc23c60","entryPNS":"855699","entryTs":"1791273620","horizonEnd":"1791273797"}
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T4 CRE path: the real CRE workflow (cre workflow simulate --broadcast) proposes the settlement; score == independent recomputation
+[v2/cre] path samples 3, touch at index 23 (1 bps), endpoint index 26 (2 bps), expected score 1
+
+ ❯ test/tape.live.test.ts (4 tests | 1 failed) 520007ms
+   ✓ Phase 4 live (staging-v2): price tape + SettlerV2 > T1 the tape records exactly the Exchange's oracle (independent raw decode at the tx block or the one before) 2311ms
+   ✓ Phase 4 live (staging-v2): price tape + SettlerV2 > T2 a forged report is refused: only the CRE forwarder may call onReport (tape and settler) 487ms
+   ✓ Phase 4 live (staging-v2): price tape + SettlerV2 > T3 keeper path: a real call is scored from the tape; a wrong proposal is overturned by a dispute when a real touch happened 267355ms
+   × Phase 4 live (staging-v2): price tape + SettlerV2 > T4 CRE path: the real CRE workflow (cre workflow simulate --broadcast) proposes the settlement; score == independent recomputation 248802ms
+     → expected undefined to be 'NotATouch' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T4 CRE path: the real CRE workflow (cre workflow simulate --broadcast) proposes the settlement; score == independent recomputation
+AssertionError: expected undefined to be 'NotATouch' // Object.is equality
+
+- Expected: 
+"NotATouch"
+
++ Received: 
+undefined
+
+ ❯ lifecycle test/tape.live.test.ts:151:107
+    149|     if (path.length) {
+    150|       const nonTouch = path.find((x) => x !== touch);
+    151|       if (nonTouch) expect(await simulateRevert(KEEPER, V2, abis.settl…
+       |                                                                                                           ^
+    152|     }
+    153| 
+ ❯ test/tape.live.test.ts:200:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  13:26:15
+   Duration  520.22s (transform 30ms, setup 0ms, collect 124ms, tests 520.01s, environment 0ms, prepare 20ms)
+
+exit 1
+=== keeper V2 fallback (13:34:55 IST)
+
+ RUN  v2.1.9 /Users/pradyum/Projects/monad-metropolis/receipts/bots
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+[v2-keeper] call 7 revealed; path recorded; horizon 1791274048
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:13:25.417Z","deploy":"staging-v2","evt":"v2_sample","hash":"0xcb1efde26068e5a1de64bc466dbbc129eb917dc44f799a4cd4d056505b88683b","status":"success","block":"68635274","gasLimit":"136068","perpId":32,"callId":"7"}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:13:26.452Z","deploy":"staging-v2","evt":"v2_propose","hash":"0x6c77a94934141a65ba34142a9c27d264e381259a06f73126a95081a7b85aa3b9","status":"success","block":"68635279","gasLimit":"135925","callId":"6","index":"23","touch":true,"score":"1"}
+{"at":"2026-10-06T08:13:26.454Z","deploy":"staging-v2","evt":"tick","ms":3857,"bots":4,"txSent":2,"deferred":false,"urgent":0,"settles":0,"humans":2,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:19:32.695Z","deploy":"staging-v2","evt":"v2_propose","hash":"0x72d456f72c8a46c81fcea872340eff0539ff824b855a8c923bfd3140de77645a","status":"success","block":"68636474","gasLimit":"138355","callId":"7","index":"7","touch":false,"score":"1"}
+{"at":"2026-10-06T08:19:32.697Z","deploy":"staging-v2","evt":"tick","ms":310987,"bots":4,"txSent":1,"deferred":false,"urgent":0,"settles":0,"humans":2,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:19:43.590Z","deploy":"staging-v2","evt":"v2_finalize","hash":"0xb0f3d1a2418a2e73072b7877861a2f357c209aeb480ba2a5d45c0eb3d0911e6c","status":"success","block":"68636509","gasLimit":"106076","callId":"6"}
+{"at":"2026-10-06T08:19:43.592Z","deploy":"staging-v2","evt":"tick","ms":2385,"bots":4,"txSent":1,"deferred":false,"urgent":0,"settles":0,"humans":2,"v2":true,"free":12}
+
+ ❯ test/live/v2.live.test.ts (2 tests | 2 failed) 1217194ms
+   × SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > setup: a human call (ETH LONG tp/sl 1 bp, 150 s) is committed and revealed; the path is recorded by the curator 500324ms
+     → Test timed out in 400000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   × SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation 716868ms
+     → Test timed out in 600000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > setup: a human call (ETH LONG tp/sl 1 bp, 150 s) is committed and revealed; the path is recorded by the curator
+Error: Test timed out in 400000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+Error: Test timed out in 600000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  13:34:55
+   Duration  1217.58s (transform 48ms, setup 0ms, collect 143ms, tests 1217.19s, environment 0ms, prepare 20ms)
+
+exit 1
+=== human curators (13:55:13 IST)
+
+ RUN  v2.1.9 /Users/pradyum/Projects/monad-metropolis/receipts/bots
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > setup: both human wallets have a free slot, then commit (A reveals at once, B never reveals)
+[human] A call 128 (revealed), B call 129 (sealed, never revealed)
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T08:29:25.512Z","deploy":"staging","evt":"expire","hash":"0xa435033a178f48dfb993b3b85d5ff5d1730cb501aa9bb5df2790345ce610ba17","status":"success","block":"68638416","gasLimit":"66821","human":"0xdA311C0354eE69872B5339b4C054BBEF9dF8ec00","perpId":"32","callId":"129"}
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T08:29:26.860Z","deploy":"staging","evt":"settle","hash":"0x9ef5b818e385ac18567a8b22e4ea61e57ec1d90765ff491aada7f4f0d89c679c","status":"success","block":"68638419","gasLimit":"152720","human":"0x129Ae6d4C43c0d6C3b35377288c3629d8c1959fd","perpId":"48","callId":"128"}
+{"at":"2026-10-06T08:29:26.864Z","deploy":"staging","evt":"tick","ms":2700,"bots":4,"txSent":2,"deferred":false,"urgent":0,"settles":0,"humans":2,"v2":false,"free":12}
+
+ ❯ test/live/human.live.test.ts (2 tests | 1 failed) 993797ms
+   ✓ HUMAN curators' calls are settled / expired by the keeper (staging) > setup: both human wallets have a free slot, then commit (A reveals at once, B never reveals) 4898ms
+   × HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000 988898ms
+     → Test timed out in 420000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+Error: Test timed out in 420000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  13:55:13
+   Duration  994.02s (transform 45ms, setup 0ms, collect 141ms, tests 993.80s, environment 0ms, prepare 19ms)
+
+exit 1
+=== L11 indexer (14:11:47 IST)
+
+ RUN  v2.1.9 /Users/pradyum/Projects/monad-metropolis/receipts/live-tests
+
+stdout | test/indexer.live.test.ts > L11 Envio indexer == chain (production deployment) > every Call row, CuratorStats, MarketStats and CuratorRevenue equals the recomputation from contract reads
+[live] indexer.L11 {"at":"2026-10-06T08:42:01.650Z","name":"indexer.L11","calls":54,"callsCompared":54,"curatorsCompared":5,"endpoint":"https://indexer.dev.hyperindex.xyz/da57fdb/v1/graphql"}
+[L11] 54 calls on chain; 54 Call rows and 5/5 CuratorStats rows compared against the chain at block 68640854
+
+ ✓ test/indexer.live.test.ts (2 tests) 14614ms
+   ✓ L11 Envio indexer == chain (production deployment) > every Call row, CuratorStats, MarketStats and CuratorRevenue equals the recomputation from contract reads 13601ms
+   ✓ L11 Envio indexer == chain (production deployment) > curator handles and bot flags equal the CuratorRegistry's 1012ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  14:11:47
+   Duration  14.81s (transform 29ms, setup 0ms, collect 107ms, tests 14.61s, environment 0ms, prepare 19ms)
+
+exit 0
+ALL DONE 14:12:02
+
+## Rerun 1 (14:12-14:32 IST), after fixing the T4 test
+=== T1-T4 tape + CRE (rerun) (14:12:51 IST)
+
+ RUN  v2.1.9 /Users/pradyum/Projects/monad-metropolis/receipts/live-tests
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T2 a forged report is refused: only the CRE forwarder may call onReport (tape and settler)
+[live] v2.forged {"at":"2026-10-06T08:43:54.665Z","name":"v2.forged","ok":true}
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T3 keeper path: a real call is scored from the tape; a wrong proposal is overturned by a dispute when a real touch happened
+[live] v2.call.keeper {"at":"2026-10-06T08:43:57.770Z","name":"v2.call.keeper","id":"8","commit":"0xb489e1fbbff5519871d550a4b3eea5d4257ef861394a6b99b3d798ccf8f794ec","reveal":"0xd25d906a6ea7e11980ed0c3b3e70fa28e81531efbce7d192c8d848a5fcafce5e","entryPNS":"859145","entryTs":"1791276196","horizonEnd":"1791276385"}
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T3 keeper path: a real call is scored from the tape; a wrong proposal is overturned by a dispute when a real touch happened
+[v2/keeper] path samples 3, touch at index 28 (1 bps), endpoint index 31 (4 bps), expected score 1
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T3 keeper path: a real call is scored from the tape; a wrong proposal is overturned by a dispute when a real touch happened
+[live] v2.dispute {"at":"2026-10-06T08:46:49.811Z","name":"v2.dispute","id":"8","propose":"0x42f3d781af4cd0286f4406999beae110e7b6321ed1a6efda7972d22e9c82b037","dispute":"0xb4be30483f374ff42f6c1eef03a5641fd3711784e5e460bb17d1b7b9d65534a7","touchIndex":"28"}
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T3 keeper path: a real call is scored from the tape; a wrong proposal is overturned by a dispute when a real touch happened
+[live] v2.finalize.keeper {"at":"2026-10-06T08:47:50.914Z","name":"v2.finalize.keeper","id":"8","tx":"0xe3af26bfa65c71cb7a0149f447d439be3fe7729819e929c75a14c96b2e68c3ba"}
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T4 CRE path: the real CRE workflow (cre workflow simulate --broadcast) proposes the settlement; score == independent recomputation
+[live] v2.call.cre {"at":"2026-10-06T08:47:55.542Z","name":"v2.call.cre","id":"9","commit":"0x03b1406c6988cfbedc6510c26ca5f750e58a816b58f8bc6182aef87a2584cbb1","reveal":"0xd045d08b3160c6160733310d08b38de691947717b977518baf728e39075c1b85","entryPNS":"859742","entryTs":"1791276447","horizonEnd":"1791276622"}
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T4 CRE path: the real CRE workflow (cre workflow simulate --broadcast) proposes the settlement; score == independent recomputation
+[v2/cre] path samples 3, touch at index 33 (3 bps), endpoint index 36 (-3 bps), expected score 1
+
+Initializing...
+Loading settings...
+Checking RPC connectivity...
+Compiling workflow...
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T4 CRE path: the real CRE workflow (cre workflow simulate --broadcast) proposes the settlement; score == independent recomputation
+[live] v2.cre.broadcast {"at":"2026-10-06T08:51:07.618Z","name":"v2.cre.broadcast","id":"9","tx":"0x33017be4853060411e8a27a0c3af633932d2ec33b9020b21529fbd31cb20707d"}
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T4 CRE path: the real CRE workflow (cre workflow simulate --broadcast) proposes the settlement; score == independent recomputation
+[live] v2.finalize.cre {"at":"2026-10-06T08:52:08.217Z","name":"v2.finalize.cre","id":"9","tx":"0x3b99e3e0dbe50cbbcc60d36e176bad44ad20e83e59c8e15af8664f036a2e9c0b"}
+
+ ❯ test/tape.live.test.ts (4 tests | 1 failed) 556817ms
+   × Phase 4 live (staging-v2): price tape + SettlerV2 > T1 the tape records exactly the Exchange's oracle (independent raw decode at the tx block or the one before) 60846ms
+     → Timed out while waiting for transaction with hash "0x16d7030d6cb5408dd56c3e536444039bb32e3bff55449e97ce0d82b1777e7318" to be confirmed.
+
+Version: viem@2.57.2
+   ✓ Phase 4 live (staging-v2): price tape + SettlerV2 > T2 a forged report is refused: only the CRE forwarder may call onReport (tape and settler) 763ms
+   ✓ Phase 4 live (staging-v2): price tape + SettlerV2 > T3 keeper path: a real call is scored from the tape; a wrong proposal is overturned by a dispute when a real touch happened 236745ms
+   ✓ Phase 4 live (staging-v2): price tape + SettlerV2 > T4 CRE path: the real CRE workflow (cre workflow simulate --broadcast) proposes the settlement; score == independent recomputation 257271ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T1 the tape records exactly the Exchange's oracle (independent raw decode at the tx block or the one before)
+WaitForTransactionReceiptTimeoutError: Timed out while waiting for transaction with hash "0x16d7030d6cb5408dd56c3e536444039bb32e3bff55449e97ce0d82b1777e7318" to be confirmed.
+
+Version: viem@2.57.2
+ ❯ Timeout._onTimeout ../node_modules/.pnpm/viem@2.57.2_bufferutil@4.1.0_typescript@5.9.3_utf-8-validate@5.0.10_zod@4.6.5/node_modules/viem/actions/public/waitForTransactionReceipt.ts:194:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  14:12:51
+   Duration  557.03s (transform 30ms, setup 0ms, collect 119ms, tests 556.82s, environment 0ms, prepare 19ms)
+
+exit 1
+=== keeper V2 fallback (rerun) (14:22:08 IST)
+
+ RUN  v2.1.9 /Users/pradyum/Projects/monad-metropolis/receipts/bots
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:52:11.960Z","deploy":"staging-v2","evt":"v2_finalize","hash":"0xe402864371f48cf1e7676f742fb01d16612974b17ed6ad7d451563aab93ce315","status":"success","block":"68642876","gasLimit":"144712","callId":"7"}
+{"at":"2026-10-06T08:52:11.962Z","deploy":"staging-v2","evt":"tick","ms":2148,"bots":4,"txSent":1,"deferred":false,"urgent":0,"settles":0,"humans":1,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:52:21.154Z","deploy":"staging-v2","evt":"tick","ms":603,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:52:30.127Z","deploy":"staging-v2","evt":"tick","ms":494,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:52:39.002Z","deploy":"staging-v2","evt":"tick","ms":443,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:52:48.253Z","deploy":"staging-v2","evt":"tick","ms":628,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:52:57.170Z","deploy":"staging-v2","evt":"tick","ms":468,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:53:06.331Z","deploy":"staging-v2","evt":"tick","ms":585,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:53:15.261Z","deploy":"staging-v2","evt":"tick","ms":472,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:53:24.475Z","deploy":"staging-v2","evt":"tick","ms":602,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:53:33.835Z","deploy":"staging-v2","evt":"tick","ms":588,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:53:43.320Z","deploy":"staging-v2","evt":"tick","ms":461,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:53:52.501Z","deploy":"staging-v2","evt":"tick","ms":586,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:54:01.412Z","deploy":"staging-v2","evt":"tick","ms":457,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:54:10.219Z","deploy":"staging-v2","evt":"tick","ms":411,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:54:19.438Z","deploy":"staging-v2","evt":"tick","ms":610,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:54:28.381Z","deploy":"staging-v2","evt":"tick","ms":480,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:54:37.449Z","deploy":"staging-v2","evt":"tick","ms":479,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:54:46.384Z","deploy":"staging-v2","evt":"tick","ms":476,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:54:55.294Z","deploy":"staging-v2","evt":"tick","ms":462,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:55:04.537Z","deploy":"staging-v2","evt":"tick","ms":629,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:55:13.663Z","deploy":"staging-v2","evt":"tick","ms":555,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:55:22.623Z","deploy":"staging-v2","evt":"tick","ms":490,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:55:31.534Z","deploy":"staging-v2","evt":"tick","ms":466,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:55:40.670Z","deploy":"staging-v2","evt":"tick","ms":573,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:55:49.822Z","deploy":"staging-v2","evt":"tick","ms":584,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:55:58.854Z","deploy":"staging-v2","evt":"tick","ms":491,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:56:07.754Z","deploy":"staging-v2","evt":"tick","ms":462,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:56:16.878Z","deploy":"staging-v2","evt":"tick","ms":569,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:56:26.005Z","deploy":"staging-v2","evt":"tick","ms":569,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:56:34.877Z","deploy":"staging-v2","evt":"tick","ms":440,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:56:43.816Z","deploy":"staging-v2","evt":"tick","ms":477,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:56:52.768Z","deploy":"staging-v2","evt":"tick","ms":483,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:57:01.922Z","deploy":"staging-v2","evt":"tick","ms":566,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:57:10.816Z","deploy":"staging-v2","evt":"tick","ms":454,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:57:19.892Z","deploy":"staging-v2","evt":"tick","ms":490,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:57:28.791Z","deploy":"staging-v2","evt":"tick","ms":452,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:57:37.767Z","deploy":"staging-v2","evt":"tick","ms":476,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:57:46.616Z","deploy":"staging-v2","evt":"tick","ms":430,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:57:55.870Z","deploy":"staging-v2","evt":"tick","ms":621,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:58:04.728Z","deploy":"staging-v2","evt":"tick","ms":431,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:58:13.970Z","deploy":"staging-v2","evt":"tick","ms":586,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:58:23.131Z","deploy":"staging-v2","evt":"tick","ms":598,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:58:32.066Z","deploy":"staging-v2","evt":"tick","ms":460,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:58:41.117Z","deploy":"staging-v2","evt":"tick","ms":474,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:58:50.060Z","deploy":"staging-v2","evt":"tick","ms":472,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:58:59.299Z","deploy":"staging-v2","evt":"tick","ms":611,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:59:08.273Z","deploy":"staging-v2","evt":"tick","ms":478,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:59:17.501Z","deploy":"staging-v2","evt":"tick","ms":611,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:59:26.368Z","deploy":"staging-v2","evt":"tick","ms":437,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:59:35.260Z","deploy":"staging-v2","evt":"tick","ms":436,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:59:44.441Z","deploy":"staging-v2","evt":"tick","ms":597,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T08:59:53.434Z","deploy":"staging-v2","evt":"tick","ms":484,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":true,"free":12}
+
+ ❯ test/live/v2.live.test.ts (2 tests | 2 failed) 483701ms
+   × SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > setup: a human call (ETH LONG tp/sl 1 bp, 150 s) is committed and revealed; the path is recorded by the curator 497ms
+     → TESTER_CURATOR has an open ETH call on staging-v2: expected 7n to be 0n // Object.is equality
+   × SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation 483203ms
+     → expected +0 to be 3 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > setup: a human call (ETH LONG tp/sl 1 bp, 150 s) is committed and revealed; the path is recorded by the curator
+AssertionError: TESTER_CURATOR has an open ETH call on staging-v2: expected 7n to be 0n // Object.is equality
+
+- Expected
++ Received
+
+- 0n
++ 7n
+
+ ❯ test/live/v2.live.test.ts:43:118
+     41| 
+     42|   test("setup: a human call (ETH LONG tp/sl 1 bp, 150 s) is committed …
+     43|     expect(await rd(reg, CALL, "openCallId", [A.address, ETH]), "TESTE…
+       |                                                                                                                      ^
+     44|     const hash = keccak256(encodeAbiParameters(
+     45|       [{ type: "uint256" }, { type: "address" }, { type: "address" }, …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+AssertionError: expected +0 to be 3 // Object.is equality
+
+- Expected
++ Received
+
+- 3
++ 0
+
+ ❯ test/live/v2.live.test.ts:68:22
+     66|       c = await getCall(id);
+     67|     }
+     68|     expect(c.status).toBe(Status.Settled);
+       |                      ^
+     69|     expect(c.flags & 4).toBe(4); // scored from the tape
+     70|     // independent reference from the tape contents
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  14:22:08
+   Duration  483.95s (transform 50ms, setup 0ms, collect 154ms, tests 483.70s, environment 0ms, prepare 23ms)
+
+exit 1
+=== human curators (rerun) (14:30:12 IST)
+
+ RUN  v2.1.9 /Users/pradyum/Projects/monad-metropolis/receipts/bots
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > setup: both human wallets have a free slot, then commit (A reveals at once, B never reveals)
+[human] A call 130 (revealed), B call 131 (sealed, never revealed)
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T09:00:19.695Z","deploy":"staging","evt":"tick","ms":593,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":false,"free":12}
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T09:00:26.341Z","deploy":"staging","evt":"tick","ms":776,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":false,"free":12}
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T09:00:32.485Z","deploy":"staging","evt":"tick","ms":574,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":false,"free":12}
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T09:00:38.776Z","deploy":"staging","evt":"tick","ms":620,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":false,"free":12}
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T09:00:45.474Z","deploy":"staging","evt":"tick","ms":783,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":false,"free":12}
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T09:00:51.650Z","deploy":"staging","evt":"tick","ms":518,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":false,"free":12}
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T09:01:00.292Z","deploy":"staging","evt":"tick","ms":758,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":false,"free":12}
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T09:01:06.474Z","deploy":"staging","evt":"tick","ms":593,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":false,"free":12}
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T09:01:12.775Z","deploy":"staging","evt":"tick","ms":684,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":0,"v2":false,"free":12}
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T09:01:31.719Z","deploy":"staging","evt":"expire","hash":"0xf2b1ccba1c0a1bdfaeb9ec466b7e8001b25f39b391881759d9acd6c2ceef3e24","status":"success","block":"68644702","gasLimit":"66821","human":"0xdA311C0354eE69872B5339b4C054BBEF9dF8ec00","perpId":"32","callId":"131"}
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T09:01:31.915Z","deploy":"staging","evt":"waiting_for_oracle_sample","human":"0x129Ae6d4C43c0d6C3b35377288c3629d8c1959fd","perpId":"48","callId":"130","oracleTs":"1791277265","horizonEnd":"1791277275"}
+{"at":"2026-10-06T09:01:31.917Z","deploy":"staging","evt":"tick","ms":2875,"bots":4,"txSent":1,"deferred":false,"urgent":0,"settles":0,"humans":2,"v2":false,"free":12}
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T09:01:38.472Z","deploy":"staging","evt":"waiting_for_oracle_sample","human":"0x129Ae6d4C43c0d6C3b35377288c3629d8c1959fd","perpId":"48","callId":"130","oracleTs":"1791277265","horizonEnd":"1791277275"}
+{"at":"2026-10-06T09:01:38.473Z","deploy":"staging","evt":"tick","ms":822,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":1,"v2":false,"free":12}
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T09:01:45.195Z","deploy":"staging","evt":"waiting_for_oracle_sample","human":"0x129Ae6d4C43c0d6C3b35377288c3629d8c1959fd","perpId":"48","callId":"130","oracleTs":"1791277265","horizonEnd":"1791277275"}
+{"at":"2026-10-06T09:01:45.196Z","deploy":"staging","evt":"tick","ms":940,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":1,"v2":false,"free":12}
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T09:01:52.067Z","deploy":"staging","evt":"waiting_for_oracle_sample","human":"0x129Ae6d4C43c0d6C3b35377288c3629d8c1959fd","perpId":"48","callId":"130","oracleTs":"1791277265","horizonEnd":"1791277275"}
+{"at":"2026-10-06T09:01:52.069Z","deploy":"staging","evt":"tick","ms":1027,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":1,"v2":false,"free":12}
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+{"at":"2026-10-06T09:01:59.971Z","deploy":"staging","evt":"settle","hash":"0x6c5b84f7b645e96cb974f37582290d670e8ebf333c07a82712f8efd8a46848a8","status":"success","block":"68644794","gasLimit":"152720","human":"0x129Ae6d4C43c0d6C3b35377288c3629d8c1959fd","perpId":"48","callId":"130"}
+{"at":"2026-10-06T09:01:59.972Z","deploy":"staging","evt":"tick","ms":2248,"bots":4,"txSent":1,"deferred":false,"urgent":0,"settles":0,"humans":1,"v2":false,"free":12}
+
+stdout | test/live/human.live.test.ts > HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000
+[human] A settled score 4 bps; B expired -3000 bps; events [{"evt":"expire","hash":"0xf2b1ccba1c0a1bdfaeb9ec466b7e8001b25f39b391881759d9acd6c2ceef3e24"},{"evt":"settle","hash":"0x6c5b84f7b645e96cb974f37582290d670e8ebf333c07a82712f8efd8a46848a8"}]
+
+ ✓ test/live/human.live.test.ts (2 tests) 112569ms
+   ✓ HUMAN curators' calls are settled / expired by the keeper (staging) > setup: both human wallets have a free slot, then commit (A reveals at once, B never reveals) 5457ms
+   ✓ HUMAN curators' calls are settled / expired by the keeper (staging) > keeper ticks (fresh context each time): A is Settled inside its own bounds, B is Expired at -3000 107112ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  14:30:13
+   Duration  112.81s (transform 49ms, setup 0ms, collect 152ms, tests 112.57s, environment 0ms, prepare 22ms)
+
+exit 0
+ALL DONE 14:32:05
+
+## Rerun 2 (14:32-14:37 IST): T1 alone, keeper V2 fallback alone
+=== T1 alone (14:32:38 IST)
+
+ RUN  v2.1.9 /Users/pradyum/Projects/monad-metropolis/receipts/live-tests
+
+stdout | test/tape.live.test.ts > Phase 4 live (staging-v2): price tape + SettlerV2 > T1 the tape records exactly the Exchange's oracle (independent raw decode at the tx block or the one before)
+[live] tape.sampled {"at":"2026-10-06T09:02:42.346Z","name":"tape.sampled","tx":"0x9b6cdabbecaa86585039349c4a15b5e272e16654eebc2edff4dec486d54b28c7","index":"37","price":"860275","oracleTs":"1791277348","matchedBlock":"B"}
+
+ ✓ test/tape.live.test.ts (4 tests | 3 skipped) 3351ms
+   ✓ Phase 4 live (staging-v2): price tape + SettlerV2 > T1 the tape records exactly the Exchange's oracle (independent raw decode at the tx block or the one before) 2340ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 3 skipped (4)
+   Start at  14:32:38
+   Duration  3.57s (transform 31ms, setup 0ms, collect 132ms, tests 3.35s, environment 0ms, prepare 22ms)
+
+exit 0
+=== keeper V2 fallback (rerun 2) (14:32:42 IST)
+
+ RUN  v2.1.9 /Users/pradyum/Projects/monad-metropolis/receipts/bots
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > setup: a human call (ETH LONG tp/sl 1 bp, 150 s) is committed and revealed; the path is recorded by the curator
+[v2-keeper] call 10 revealed; path recorded; horizon 1791277514
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T09:05:32.844Z","deploy":"staging-v2","evt":"v2_sample","hash":"0x93bc66fded61cc9107e2bbdd603411ceb77de729aad467ddf1ff22458178f735","status":"success","block":"68645493","gasLimit":"136068","perpId":32,"callId":"10"}
+{"at":"2026-10-06T09:05:32.848Z","deploy":"staging-v2","evt":"tick","ms":1777,"bots":4,"txSent":1,"deferred":false,"urgent":0,"settles":0,"humans":1,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T09:05:47.934Z","deploy":"staging-v2","evt":"v2_propose","hash":"0xd4b52bf5827d29ac4650f3ebb3ff9e7c0ecbfeb3ef555c6be4fc29de0918f5cb","status":"success","block":"68645543","gasLimit":"135925","callId":"10","index":"8","touch":true,"score":"1"}
+{"at":"2026-10-06T09:05:47.936Z","deploy":"staging-v2","evt":"tick","ms":6312,"bots":4,"txSent":1,"deferred":false,"urgent":0,"settles":0,"humans":1,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T09:05:57.061Z","deploy":"staging-v2","evt":"tick","ms":654,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":1,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T09:06:06.046Z","deploy":"staging-v2","evt":"tick","ms":568,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":1,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T09:06:15.431Z","deploy":"staging-v2","evt":"tick","ms":766,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":1,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T09:06:25.277Z","deploy":"staging-v2","evt":"tick","ms":805,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":1,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T09:06:34.359Z","deploy":"staging-v2","evt":"tick","ms":621,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":1,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T09:06:43.545Z","deploy":"staging-v2","evt":"tick","ms":603,"bots":4,"txSent":0,"deferred":false,"urgent":0,"settles":0,"humans":1,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+{"at":"2026-10-06T09:06:55.514Z","deploy":"staging-v2","evt":"v2_finalize","hash":"0x7152514a22f5b287885d6d376154c7919f399acc4b81d8290f25b136d47f2fcb","status":"success","block":"68645766","gasLimit":"106076","callId":"10"}
+{"at":"2026-10-06T09:06:55.516Z","deploy":"staging-v2","evt":"tick","ms":2353,"bots":4,"txSent":1,"deferred":false,"urgent":0,"settles":0,"humans":1,"v2":true,"free":12}
+
+stdout | test/live/v2.live.test.ts > SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation
+[v2-keeper] settled 1 bps (touch yes); [{"evt":"v2_sample","hash":"0x93bc66fded61cc9107e2bbdd603411ceb77de729aad467ddf1ff22458178f735"},{"evt":"v2_propose","hash":"0xd4b52bf5827d29ac4650f3ebb3ff9e7c0ecbfeb3ef555c6be4fc29de0918f5cb"},{"evt":"v2_finalize","hash":"0x7152514a22f5b287885d6d376154c7919f399acc4b81d8290f25b136d47f2fcb"}]
+
+ ✓ test/live/v2.live.test.ts (2 tests) 263192ms
+   ✓ SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > setup: a human call (ETH LONG tp/sl 1 bp, 150 s) is committed and revealed; the path is recorded by the curator 168101ms
+   ✓ SettlerV2 keeper fallback (staging-v2): sample -> propose -> finalize without CRE > keeper ticks (fresh context each time) record the endpoint, propose, and finalize; score == independent recomputation 95090ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  14:32:42
+   Duration  263.43s (transform 49ms, setup 0ms, collect 144ms, tests 263.19s, environment 0ms, prepare 20ms)
+
+exit 0
+ALL DONE 14:37:06

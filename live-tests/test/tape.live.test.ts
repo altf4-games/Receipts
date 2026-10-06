@@ -147,7 +147,9 @@ describe.sequential("Phase 4 live (staging-v2): price tape + SettlerV2", () => {
     // V1 is no longer the settler: it cannot close this call (it reverts inside registry.close with the registry's NotSettler error)
     expect(await simulateRevert(KEEPER, deployment.settlerV1, abis.settler, "settle", [id])).not.toBeUndefined();
     if (path.length) {
-      const nonTouch = path.find((x) => x !== touch);
+      // a path sample that really is NOT a touch (inside both limits). Any other sample may also touch (1 bp limits): proposing
+      // a LATER touch is valid (a dispute with the earliest one overturns it), so only a true non-touch must be refused.
+      const nonTouch = path.find((x) => { const r = retBps(c, x.s.price); return r < BigInt(tp) && r > -BigInt(sl); });
       if (nonTouch) expect(await simulateRevert(KEEPER, V2, abis.settlerV2, "propose", [id, nonTouch.i])).toBe("NotATouch");
     }
 
