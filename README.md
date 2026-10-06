@@ -110,6 +110,10 @@ forge test --no-match-path 'test/fork/*'          # unit tests
 cd ../app && pnpm install && pnpm dev               # needs KV_REST_API_URL / KV_REST_API_TOKEN (Upstash) for the delivery API
 ```
 
+## Pre-existing code
+
+None. This repository's first commit is dated Oct 4, 2026 and everything in it was written for Monad Metropolis; the full commit history is the record.
+
 ## Use of AI
 
 AI tools played a helpful role in building Receipts, from researching the Perpl, Chainlink CRE, Nansen, Envio and Aurora integration paths to drafting documentation, assisting with contract structure, creating unit tests, and supporting frontend development.
