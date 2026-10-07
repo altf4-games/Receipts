@@ -15,7 +15,7 @@ export function LiveRefresh({ seconds = 12 }: { seconds?: number }) {
     return () => { clearInterval(id); document.removeEventListener("visibilitychange", tick); };
   }, [router, seconds]);
   return (
-    <span className="text-xs dim" role="status" aria-live="off">
+    <span className="text-xs" style={{ color: "var(--text-dim)" }} role="status" aria-live="off">
       <span aria-hidden style={{ color: paused ? "var(--text-dim)" : "var(--stamp-green)" }}>●</span> {paused ? "paused" : "live"}{at ? ` · updated ${at.toLocaleTimeString()}` : ""}
     </span>
   );

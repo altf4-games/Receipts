@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   if (!pk) return NextResponse.json({ error: "Starter funds are not configured on this deployment." }, { status: 503 });
   let address: string | undefined;
   try { address = ((await req.json()) as { address?: string }).address; } catch { /* handled below */ }
-  if (!address || !isAddress(address)) return NextResponse.json({ error: "address required" }, { status: 400 });
+  if (typeof address !== "string" || !isAddress(address)) return NextResponse.json({ error: "address required" }, { status: 400 });
   const to = address as Address;
 
   const bal = await Promise.all([

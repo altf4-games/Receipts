@@ -18,8 +18,10 @@ PERPL_API = "https://testnet.perpl.xyz/api"
 # Stateless tick every 5 minutes (minutes 0,5,10...). Capped at 3 tx per tick (see tick.ts). The backup below runs at minutes
 # 2,7,12... so the two never fire together (no nonce races) and together tick about every 2.5 min. Reveal windows are ~2 h wide,
 # commit windows 20 min, so 5-minute granularity per Worker is plenty; 5x fewer runs also means 5x fewer chances to trip a limit.
+# GitHub Actions (started every 5 min by receipts-dispatch) is the primary runner since 2026-10-06; this Worker is a backup and
+# runs less often to stay under the Free plan CPU limit (it had a 55 min exceededResources spell at 04:05-04:55 IST on Oct 7).
 [triggers]
-crons = ["*/5 * * * *"]
+crons = ["*/15 * * * *"]
 
 [env.staging]
 name = "receipts-bots-staging"

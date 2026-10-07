@@ -27,9 +27,8 @@ async function dispatch(env: Env): Promise<string> {
 
 export default {
   async scheduled(_c: unknown, env: Env): Promise<void> { await dispatch(env); },
-  async fetch(req: Request, env: Env): Promise<Response> {
-    const u = new URL(req.url);
-    if (u.pathname === "/dispatch" && req.method === "POST" && req.headers.get("x-admin") === env.GH_TOKEN.slice(-8)) return new Response((await dispatch(env)) + "\n");
+  // no manual trigger: the Worker only answers a banner, so nothing outside Cloudflare's cron can make it call GitHub
+  async fetch(): Promise<Response> {
     return new Response("receipts-dispatch: starts the keeper workflow every 5 minutes\n");
   },
 };

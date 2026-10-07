@@ -15,7 +15,9 @@ const WINDOW_SECS = 300;
 export async function GET(req: Request, ctx: RouteContext<"/api/calls/[id]">) {
   const url = new URL(req.url);
   const dep = deploymentOf(url.searchParams.get("deployment"));
-  const id = Number((await ctx.params).id);
+  const rawId = (await ctx.params).id;
+  if (!/^[0-9]{1,9}$/.test(rawId)) return NextResponse.json({ error: "unknown call" }, { status: 404 }); // plain decimal ids only (not 0x10, 1e3, " 5")
+  const id = Number(rawId);
   const call = await readOnchainCall(dep, id);
   if (!call) return NextResponse.json({ error: "unknown call" }, { status: 404 });
 
