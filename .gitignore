@@ -1,6 +1,7 @@
 # --- Docs policy: only README.md files are committed. All other .md (CLAUDE.md, plan.md, docs/*) stay local. ---
 *.md
 !README.md
+!docs/partner-feedback/*.md
 
 # secrets
 .env
@@ -38,7 +39,8 @@ cre/**/*.wasm
 .idea/
 
 # local-only evidence data
-docs/
+docs/*
+!docs/partner-feedback/
 
 # wrangler local secrets
 .dev.vars

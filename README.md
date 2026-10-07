@@ -1,18 +1,183 @@
 # Receipts
 
-Finfluencers delete their bad calls. On Receipts, they can't.
+**Finfluencers delete their bad calls. On Receipts, they can't.**
 
-Receipts is a paid curation feed for market calls whose track record cannot be faked. A curator commits a hidden call as a hash on Monad. The same transaction snapshots Perpl's Chainlink-fed oracle price, so the entry price and time cannot be backdated. Subscribers get the plaintext early and check it against the onchain hash. Everyone sees it at reveal. Calls that are never revealed score as a maximum loss.
+Receipts is a paid curation feed for market calls whose track record cannot be faked. A curator commits a hidden call as a hash on Monad. The same transaction reads Perpl's Chainlink-fed oracle price and stores it as the entry, so the entry price and time cannot be backdated. Subscribers pay by the second, get the plaintext early and check it against the onchain hash in their own browser. Everyone sees the call at the reveal. A call that is never revealed scores -30%, so a bad call cannot be quietly dropped.
 
-Entered in the **Social, Attention & Culture** track of Monad Metropolis (2026).
+**Live app:** [receipts-app-rho-ashy.vercel.app](https://receipts-app-rho-ashy.vercel.app). It reads straight from Monad testnet and an Envio indexer. Built solo for [Monad Metropolis](https://hackathon.monad.xyz) (2026), in the **Social, Attention & Culture** track, with Nansen, Chainlink CRE and Envio as the bounties.
 
-> **Status: working on Monad testnet.** Deployed and verified: the registries, both settlers, the price tape and Subscriptions. Running unattended: four labelled bot curators and a keeper (a GitHub Actions job started every 5 minutes by a tiny Cloudflare Worker, with two Cloudflare Workers running the same tick as a backup), and a Next.js app at https://receipts-app-rho-ashy.vercel.app with a live feed, per-second subscriptions, in-browser verification and email sign-in with a built-in wallet. SettlerV2, the settler that scores calls from the Chainlink CRE price tape, has been the active production settler since Oct 5, 2026 (tx `0xca4104eb11d237800655115357d04c17791f707d2f63c45b2e16298782559bed`). Also built: an Envio indexer (Monad testnet and mainnet), open ranker algorithms with an onchain registry, and the Nansen integration. Not built: the mainnet cross-chain flow.
+---
+
+## How it works
+
+```mermaid
+flowchart LR
+    B["Browser\nPrivy email wallet or MetaMask"]
+    subgraph Monad["Monad testnet"]
+        CR["CallRegistry\ncommit / reveal / expire"]
+        PX["Perpl Exchange\noracle price (Chainlink Data Streams)"]
+        SUB["Subscriptions\nper-second AUSD streams"]
+        PT["PriceTape\noracle samples"]
+        S2["SettlerV2\npropose / dispute / finalize"]
+        RR["RankerRegistry\nranking receipts"]
+    end
+    D["Delivery server\nNext.js + Redis"]
+    K["Keeper\nGitHub Actions every 5 min\n+ Cloudflare Workers backup"]
+    CRE["Chainlink CRE workflow\nsimulate --broadcast"]
+    E["Envio HyperIndex\nEnvio Cloud"]
+    N["Nansen API\ncached daily"]
+    APP["App\nNext.js on Vercel"]
+
+    B -->|"commit(hash)"| CR
+    CR -->|"reads oracle in the same tx"| PX
+    B -->|subscribe| SUB
+    B -->|"signed read"| D
+    D -->|"isActive?"| SUB
+    D -->|plaintext| B
+    B -.->|"re-hash and compare"| CR
+    K -->|"reveal, expire, sample, propose, finalize"| Monad
+    CRE -->|"reports via forwarder"| PT
+    CRE -->|"reports via forwarder"| S2
+    PT -->|"reads oracle itself"| PX
+    S2 -->|"checks every proposal against"| PT
+    S2 -->|"close(score)"| CR
+    Monad -->|events| E
+    E -->|GraphQL| APP
+    N --> APP
+    APP --> B
+```
+
+**The server and the workflow are not trusted for the things that matter.** The delivery server can read a call before the reveal, but it never decides integrity: it refuses plaintext that does not hash to the commit, and the browser re-hashes against the chain. The CRE workflow and the keeper can only trigger true samples and proposals: `PriceTape` reads Perpl's oracle itself inside the transaction, and `SettlerV2` checks every proposal against the tape, where anyone can dispute it with an earlier touching sample for 15 minutes.
+
+---
 
 ## Try it
 
 Open https://receipts-app-rho-ashy.vercel.app, press **Sign in** (any email, Privy creates a built-in wallet) or connect MetaMask on Monad testnet, then go to `/me` and press **Get free test money** (0.25 test MON for gas and 200 test dollars; nothing costs real money). Open a receipt marked *Sealed* from the curator `pradyum`, subscribe for ten minutes and press **Sign and unlock**: you get the call and a green "matches sealed commit at block N", computed in your browser. `/call/36` is a bot call settled through the price tape (chart, flags, dispute window), `/rankers` has the open rankers and the Nansen table, and `/new` publishes your own call.
 
-## Deployed contracts (Monad testnet, chain 10143)
+---
+
+## Why Monad
+
+A track record is only worth reading if every call is on chain, and a feed is only pleasant if sealing a call feels instant. Monad's 300 ms blocks and sub-second finality make a commit land before the curator has looked away, and gas is cheap enough that a bot can seal, reveal and settle dozens of calls a day.
+
+The honest gap: Receipts does not depend on Monad's parallel execution, and I have not measured it. What it uses is fast cheap blocks, the Multicall3 deployment, and the Monad-specific WebSocket subscriptions.
+
+---
+
+## Monad features used
+
+| Feature | How it is used |
+|---|---|
+| 300 ms blocks, fast finality | The seal tracker on `/new` subscribes to `monadNewHeads` and shows the Proposed, Voted and Finalized stages of the curator's own commit (measured in a browser: about 105 ms, 428 ms and 664 ms) |
+| Gas billed on the gas limit | Every keeper transaction uses limit = estimate x 1.15, the CRE report limits are sized from measured costs, and the price tape is sampled only when a call is open (about 0.012 MON per market) |
+| Multicall3 at its canonical address | All page reads and the keeper's whole scan go through Multicall3, because the public RPC allows about 15 requests a second |
+| Public RPC limits (100-block `eth_getLogs`) | The subscription index is an incremental event scan kept in Redis; the heavy history is Envio's job |
+| Monad testnet and mainnet | Contracts, bots and live tests run on testnet (10143); the Envio indexer also reads Perpl on mainnet (143) |
+
+---
+
+## Why Perpl
+
+A call is only worth trusting if its entry price came from somewhere the curator cannot touch. Perpl's exchange already exposes a Chainlink Data Streams price on chain, so reading it inside the commit transaction makes the entry price and time as honest as the oracle.
+
+The honest gap: Receipts reads Perpl but does not trade on it, so I did not enter the Perpl trading-bot bounty.
+
+---
+
+## Perpl features used
+
+| Feature | How it is used |
+|---|---|
+| `getPerpetualInfo` (oracle price, timestamp, `ignOracle`, decimals) | Read inside `CallRegistry.commit` for the entry snapshot and inside `PriceTape.sample` for the price path. The struct is dynamic and undocumented, so a library decodes it; the commit checks `ignOracle` is false and the price is no more than 120 s old |
+| REST market-data candles (`/api/v1/market-data/:id/candles/60/:from-:to`) | The CRE workflow's external API. The gap to the oracle is logged in a `CrossCheck` event and never used for scoring |
+| `AccountCreated`, `PositionOpened`, `PositionOpenedV2` events | The Envio indexer links a curator's wallet to its Perpl account and flags Perpl positions opened while their own call was open |
+| Testnet and mainnet exchanges, per-network market ids | Testnet BTC 16, ETH 32, SOL 48, MON 64, ZEC 256 (they differ from mainnet and are never mixed) |
+
+---
+
+## Why Chainlink CRE
+
+Settlement needs to read the chain and an outside API and then write a result back, which is exactly the shape of a CRE workflow. I wanted the workflow to be the primary path and the contracts not to trust it, so a bad workflow cannot settle a call wrongly.
+
+The honest gap: the workflow runs as a CLI simulation with `--broadcast`, not as a deployed DON workflow. A Chainlink mentor confirmed that is what this bounty expects. In practice my keeper settles most production calls today, because the workflow only runs when I run it.
+
+---
+
+## Chainlink CRE features used
+
+| Feature | How it is used |
+|---|---|
+| Cron trigger | Starts a run on a schedule (minimum 30 s) |
+| EVM read (`callContract`, Multicall3) | Scans the call registry, the tape and the oracle inside the 15-read quota |
+| HTTP client | Calls Perpl's REST API for the market price |
+| EVM write (`writeReport`) | Sends samples to `PriceTape` and proposals to `SettlerV2` through the forwarder, using the `monad-testnet` chain selector |
+| `cre workflow simulate --broadcast` | Real transactions on Monad testnet. On production it proposed the settlement of call #55 (tx `0x23f21fe5152ea8d9a81f17f276ee930bf25d32954f8eea7c16df42ed52e7475c`), which the keeper then finalized with exactly that score |
+| Targets and configs | `local-simulation`, `staging-settings` and `production-settings`, each with its own contract addresses |
+| `MockKeystoneForwarder` | The simulation forwarder. It does not verify DON signatures, so the receivers never trust the report's content |
+
+---
+
+## Why Envio
+
+The feed, the leaderboard, curator pages and the rankers all need the whole history of calls, scores, settlements and subscriptions, and reading that from a public RPC that limits log ranges would not work. One GraphQL endpoint solves it for the app and for anyone who wants to rerun a ranker.
+
+The honest gap: the public Envio Cloud endpoint has no aggregate queries, so the app counts on the client. The app also falls back to reading the chain directly if the indexer is down.
+
+---
+
+## Envio features used
+
+| Feature | How it is used |
+|---|---|
+| HyperIndex on Envio Cloud, multichain | Monad testnet (10143) and mainnet (143); entities are per chain (`disable_default_cross_chain`) |
+| Event handlers over 9 contracts | Receipts contracts plus Perpl's Exchange (as two logical contracts at the same address, with different start blocks) |
+| 17 derived entities | Curator stats with equity curve and max drawdown, market stats, revenue, settlement proposals, tape samples and cross-checks, ranker receipts, Perpl skin-in-the-game flags |
+| Per-contract `start_block` | Keeps the indexer inside the free plan's event budget |
+| `chain_metadata` | The app shows "indexed to block N of M", and the live test waits on it |
+| `createTestIndexer().process({ simulate })` | 18 fast, deterministic handler tests |
+| Live test against Envio Cloud | Pins one block and compares every call, curator stat, market stat and revenue row with a recomputation from contract reads |
+
+---
+
+## Why Nansen
+
+Before paying a curator, a subscriber wants to know if the curator thinks for themselves or follows the crowd. Nansen Smart Money is a ready-made crowd to compare against, and the comparison is only honest if it is made at the moment the call was sealed, not afterwards.
+
+The honest gap: Smart Money perp data covers Hyperliquid, not Perpl, and only the last 7 days. Nansen has no testnet data, so the wallet panels show an empty state for testnet curators.
+
+---
+
+## Nansen features used
+
+| Feature | How it is used |
+|---|---|
+| Smart Money perp trades (`/api/v1/smart-money/perp-trades`) | Net long or short lean in BTC, ETH and SOL in the 24 hours before each call; the receipt page shows whether the call went with or against it |
+| Profiler related wallets (`/api/v1/profiler/address/related-wallets`) | Same-operator cluster flag across curators' linked mainnet wallets |
+| Profiler PnL summary (`/api/v1/profiler/address/pnl-summary`) | Realised PnL and win rate of a curator's linked wallet on Monad mainnet |
+| Credit-aware design | Free plan (100 credits, then 10 a day): daily cached refresh, "as of" labels, a reserve read from Nansen's own response headers |
+| "Beats smart money" ranker | Ranks curators by the Wilson lower bound of their win rate on calls made against the lean |
+
+---
+
+## Why Privy
+
+A feed for people who follow markets should not start with "install a wallet and get gas". Privy lets a visitor sign in with an email and get an embedded wallet; combined with a one-click starter-funds button, someone can subscribe and verify a call in about three minutes.
+
+The honest gap: I use Privy for sign-in and the embedded wallet only. I did not use server wallets or policies, so I did not enter a Privy bounty.
+
+---
+
+## Privy features used
+
+| Feature | How it is used |
+|---|---|
+| Email login | The only login method (Google would need my own OAuth client) |
+| Embedded wallet, created on login | Handed to the app as an EIP-1193 provider through viem's custom transport; every flow (subscribe, unlock, publish, link identity) works the same with MetaMask |
+| Coexistence with extension wallets | Signing in or out resets each page's connection so the two wallet types never mix |
+
+---
+## Live on testnet (Monad, chain 10143)
 
 | Contract | Address | Verified |
 |---|---|---|
@@ -26,6 +191,8 @@ Open https://receipts-app-rho-ashy.vercel.app, press **Sign in** (any email, Pri
 
 Parameters: minimum horizon 15 min, maximum 7 days, take-profit cap 30%, stop-loss cap 15%, unrevealed-call penalty −30%, bond 50 AUSD, oracle age limit 120 s, settler-rotation timelock 6 h. A separate staging deployment (60 s minimum horizon) exists for live tests; its addresses are in `deployments/`.
 
+---
+
 ## Subscriptions and delivery
 
 A subscriber deposits AUSD and the curator earns it by the second at the rate the curator set when the stream started. Cancelling refunds exactly the part not yet earned. All math is whole-number multiplication (rate × seconds), so there is no rounding: deposit = paid + refund. Fuzz tests and live tests on testnet check this against an independent recompute from block timestamps.
@@ -37,7 +204,9 @@ The plaintext of a sealed call is delivered by a small server (Next.js route han
 - **Reads need a signature.** A sealed call is returned only to a wallet that signs a short message (bound to the call, the deployment and a 5-minute window) and has an active onchain subscription to that curator, or is the curator.
 - **The bots' calls are not in the store yet.** Their plaintext can be recomputed from a secret I hold; subscriptions to bots are not offered.
 
-## Chainlink CRE: the price tape and SettlerV2
+---
+
+## Chainlink CRE in detail: the price tape and SettlerV2
 
 SettlerV1 scores a call at the end only and lets whoever settles pick which post-horizon oracle sample to use. SettlerV2 fixes both with a price tape written by a Chainlink CRE workflow (`cre/tape-and-settle`, TypeScript).
 
@@ -61,7 +230,17 @@ Honest limits:
 - **Path resolution is the tape's density.** A touch between two samples is invisible, and the first sample at or after the horizon can lag the horizon (flagged when more than 180 s).
 - **Calls settled before Oct 5, 21:15 IST were scored by SettlerV1** (endpoint only) and stay final. Since the switch, calls are settled through the tape: the first was #31 (proposed at 21:57 IST, finalized at about 22:12 IST, score +1.00%, flags 4); most calls since then carry flags 4.
 
-## Nansen: smart money at the moment of the call
+---
+
+## Envio in detail: the indexer and the open rankers
+
+`indexer/` is an Envio HyperIndex project covering the Receipts contracts on Monad testnet and Perpl's Exchange on testnet and mainnet. It derives per-curator scoreboards (equity curve, max drawdown, sums for confidence bounds), per-market stats, subscription revenue and daily Perpl analytics, and it flags a curator's own Perpl positions opened while a call was open. I check it against the chain with a live test that pins one block, waits for the indexer to reach it and compares every row (see `indexer/README.md`).
+
+`rankers/` holds the ranking algorithms as pure functions (`raw`, `mean-per-call`, `luck-adjusted`, `hit-rate-wilson`). A ranker is registered on chain with its code location and git commit, so anyone can rerun the exact code. The README there reports a coin-flip simulation, including the case where the luck-adjusted rule does *not* beat plain summing.
+
+---
+
+## Nansen in detail: smart money at the moment of the call
 
 I use Nansen where it answers a question a subscriber actually has: was this curator going with the crowd or against it? For every revealed call, the receipt page shows what Nansen Smart Money was doing in that market in the 24 hours before the call was sealed, and whether the call went with or against that lean. Only trades before the commit time are counted, and a sealed call's direction is never compared (it is secret until reveal). `/rankers` has a "beats smart money" table that ranks curators by the Wilson lower bound of their win rate on calls made *against* the lean, so following the crowd and being right does not rank. Example from production: receipt #19 was LONG when Smart Money had opened about $173k long and $645k short BTC, and it won +0.45%.
 
@@ -82,12 +261,7 @@ I use the REST API directly. I did not use the Nansen CLI or MCP tools in the pr
 
 **What is real and what is not.** The Smart Money lean and the "beats smart money" table run on real Nansen data today. The wallet panel and the cluster flag are built, tested and call Nansen for real: I linked one wallet and Nansen answered both calls, with an empty result, because testnet curators have no mainnet history. I will not link wallets to fake a cluster, so those panels show that empty state. Limits that come from Nansen: Smart Money perp data is Hyperliquid only (Perpl is not covered), only the trailing 7 days are available, and I only started storing it on Oct 5, so earlier calls are not compared. Notes on friction are in the partner feedback I wrote while building.
 
-## Perpl: the oracle as the trust anchor
-
-Receipts is a track-record product, so it uses Perpl as a source of truth rather than as a trading venue. All of this runs on real Perpl state:
-- **Onchain oracle.** `CallRegistry.commit` reads `Exchange.getPerpetualInfo` in the same transaction and stores the Chainlink Data Streams price (`oraclePNS`) and its timestamp as the entry. It checks `ignOracle` is false and the price is no older than 120 s. `PriceTape.sample` does the same read to build the price path used for take-profit and stop-loss settlement.
-- **REST API.** The Chainlink CRE workflow calls Perpl's market-data candles (`/api/v1/market-data/:id/candles/60/:from-:to`) as its external API and records the gap to the oracle in a `CrossCheck` event. The candle price is never used to score a call.
-- **Perpl events in the indexer.** The Envio indexer reads `AccountCreated` and `PositionOpened` / `PositionOpenedV2` from the Exchange (testnet and mainnet) to link a curator's wallet to its Perpl account and flag Perpl positions opened while their call was open.
+---
 
 ## Operating it, and an outage I had
 
@@ -95,11 +269,7 @@ The bots and the keeper must run unattended, because an unrevealed call scores �
 
 **The Cloudflare Free plan failed me twice.** On Oct 4 (about 2 h) and on Oct 6 from 08:10 to 12:55 IST both Workers returned `exceededResources` and then `scriptThrewException` until they recovered. Cloudflare's own analytics showed why: each run used 40 to 60 ms of CPU against the Free plan's 10 ms limit, which is tolerated until it is not. The second outage cost five bot calls (#48 to #52) that were never revealed and expired at −30%, permanently, because the registry is frozen. That is the penalty working as designed, and it is also visible in the bots' stats. I moved the primary runner to GitHub Actions the same day. The record is in `.github/workflows/keeper.yml`.
 
-## Indexer and open rankers
-
-`indexer/` is an Envio HyperIndex project covering the Receipts contracts on Monad testnet and Perpl's Exchange on testnet and mainnet. It derives per-curator scoreboards (equity curve, max drawdown, sums for confidence bounds), per-market stats, subscription revenue and daily Perpl analytics, and it flags a curator's own Perpl positions opened while a call was open. I check it against the chain with a live test that pins one block, waits for the indexer to reach it and compares every row (see `indexer/README.md`).
-
-`rankers/` holds the ranking algorithms as pure functions (`raw`, `mean-per-call`, `luck-adjusted`, `hit-rate-wilson`). A ranker is registered on chain with its code location and git commit, so anyone can rerun the exact code. The README there reports a coin-flip simulation, including the case where the luck-adjusted rule does *not* beat plain summing.
+---
 
 ## What a transaction costs
 
@@ -120,6 +290,8 @@ Gas on Monad is billed on the gas limit, not on gas used. These are medians from
 | `claim` | 50,000 | 0.005 |
 
 Keeping the tape dense (one sample about every 15 minutes for each market that has an open call) costs roughly 3 to 5 MON a day at the current call volume, which is why the keeper only does it while a call is open and only when its own balance is above 1 MON.
+
+---
 
 ## Tests, and what they caught
 
@@ -144,6 +316,48 @@ Every claim in this README that says "tested live" means a real transaction and 
 - **Indexer details**: a contract cannot start before its chain's start block; simulated events below a start block are dropped; a schema change silently lost entity data until the indexer was stopped and restarted. A live test now compares every indexed row with the chain.
 - **Cloudflare Free plan outages** (Oct 4 and Oct 6), described above.
 
+---
+
+## Bugs and friction I found in sponsor tooling
+
+I log every rough edge as it happens, with the exact error text, and I worked around each one. The full logs, one file per sponsor, are in [`docs/partner-feedback/`](docs/partner-feedback). The ones most worth fixing upstream:
+
+| Sponsor | What I found | What I did |
+|---|---|---|
+| Chainlink CRE | `zod .url()` fails in the workflow's QuickJS config parser with a misleading error (`Invalid url` for a valid https URL) | Replaced it with a regex; documented |
+| Chainlink CRE | Monad is missing from the CRE skill's embedded chain-selector tables (selector `monad-testnet`, forwarders found on the live directory page) | Recorded the selector and both forwarder addresses |
+| Chainlink CRE | `--broadcast` bills the full gas limit on Monad; a guessed 800,000 limit cost 0.0816 MON for a ~120k operation | Sized every report from measured gas |
+| Chainlink CRE | Transient `unable to retrieve organization info` error suggests a broken account; a retry 20 s later worked | Documented |
+| Envio | `envio init` fails on pnpm 12 (`ERR_PNPM_IGNORED_BUILDS` for esbuild), leaving a half-initialised project | Allowed the build script in the project's own workspace file |
+| Envio | A contract cannot start before its chain (`start block ... less than the chain start block`), raised at run time and not by `codegen` | Chain `start_block: 0` plus explicit per-contract starts, and two logical contracts on one address |
+| Envio | Resuming after a schema change silently loses entity data (queries return 0 rows) | `envio stop` then `envio dev`; a warning would prevent the confusion |
+| Envio | The public cloud endpoint has no `_aggregate` queries, unlike the local one | Count on the client |
+| Perpl | `getPerpetualInfo` returns an undocumented dynamic struct; testnet and mainnet market ids differ | Decode the words by hand; ids kept per network |
+| Nansen | Free tier is 100 credits then 10 a day, and the credit cost per endpoint is only in a response header | Cached everything with "as of" labels and a reserve read from the header |
+| Nansen | Smart Money perp data covers only Hyperliquid and the last 7 days, with no date parameter | Labelled on every panel; snapshots stored from Oct 5 |
+| Agora | The testnet AUSD faucet's 60 s limit is global, not per address, so a fork test reverted when anyone else had just used it | Warp the fork clock for the faucet call |
+| Monad / Cloudflare | Gas billed on the limit makes receipts hide real consumption; a Cloudflare cron on a Worker with `workers_dev = false` never fires, with no warning | Sized limits from estimates; set `workers_dev = true` |
+| Privy | A viem-only app pulls in a large WalletConnect tree: pnpm 12 refused the install scripts and `pnpm audit` found 4 transitive advisories | Reviewed the scripts, pinned the advisories with overrides |
+
+---
+
+## Known limitations
+
+- **The delivery server sees the plaintext before the reveal.** It is trusted for availability and confidentiality only; encrypting to subscriber keys is future work.
+- **Testnet only.** The cross-chain "pay from any chain" flow on mainnet is not built.
+- **The bond is not slashed in this version**, and the exchange address is immutable in `CallRegistry`.
+- **The CRE workflow is a simulation with broadcast**, and the mock forwarder does not authenticate it, which is why nothing depends on that.
+- **Path resolution is the tape's density** (about one sample per 15 minutes while a call is open).
+- **The wallet and cluster panels from Nansen show an empty state** because testnet curators have no mainnet history.
+- **Five bot calls (#48 to #52) carry -30% for good** after my free keeper host went down for four hours; the registry is frozen.
+
+---
+
+## Stack
+
+Solidity 0.8.28 with Foundry (OpenZeppelin), TypeScript and viem, Next.js 16 and Tailwind on Vercel, Upstash Redis, Privy, Chainlink CRE (TypeScript SDK), Envio HyperIndex, Nansen API, Cloudflare Workers and GitHub Actions for the keeper, pnpm workspaces.
+
+---
 ## Layout
 
 | Path | Purpose |
@@ -154,7 +368,9 @@ Every claim in this README that says "tested live" means a real transaction and 
 | `indexer/` | Envio HyperIndex |
 | `rankers/` | Open ranker algorithms |
 | `app/` | Next.js frontend |
-| `live-tests/` | Tests that run against real Monad testnet state |
+| `live-tests/` | Tests that run against real Monad testnet state, and their saved output |
+| `docs/partner-feedback/` | Bugs and friction found in sponsor tooling, one file per sponsor |
+| `.github/workflows/` | The keeper job (one stateless tick, started every 5 minutes) |
 
 ## Setup
 
