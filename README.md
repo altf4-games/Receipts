@@ -351,7 +351,7 @@ I filed what I could verify as a real problem, after checking the latest upstrea
 | Chainlink agent skills | [chainlink-agent-skills#86](https://github.com/smartcontractkit/chainlink-agent-skills/issues/86) | The skill lists `zod` as compatible, but `z.string().url()` fails in the workflow runtime because there is no `URL` global |
 | Perpl | [api-docs#17](https://github.com/PerplFoundation/api-docs/issues/17) | The README and `.env.example` list a testnet collateral token that the testnet API, perpl-docs and dex-sdk no longer use |
 
-Two things I hit were already reported and fixed upstream by the time I checked, so I did not file them: `envio init` failing on pnpm 12 ([hyperindex#1679](https://github.com/enviodev/hyperindex/issues/1679)). I left out the rest of my notes (for example the Envio start-block check, which is a deliberate "not supported yet" error) because they are not bugs.
+One more thing I hit, `envio init` failing on pnpm 12, was already reported and fixed upstream when I checked ([hyperindex#1679](https://github.com/enviodev/hyperindex/issues/1679)), so I did not file it. The other rough edges in the table above are written up in `docs/partner-feedback/` but I did not file them, because I could not show them to be bugs rather than limits (for example Envio's start-block check, which is a deliberate "not supported yet" error).
 
 ---
 
