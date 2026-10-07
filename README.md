@@ -324,20 +324,34 @@ I log every rough edge as it happens, with the exact error text, and I worked ar
 
 | Sponsor | What I found | What I did |
 |---|---|---|
-| Chainlink CRE | `zod .url()` fails in the workflow's QuickJS config parser with a misleading error (`Invalid url` for a valid https URL) | Replaced it with a regex; documented |
-| Chainlink CRE | Monad is missing from the CRE skill's embedded chain-selector tables (selector `monad-testnet`, forwarders found on the live directory page) | Recorded the selector and both forwarder addresses |
+| Chainlink CRE | `zod .url()` fails in the workflow's QuickJS config parser with a misleading error (`Invalid url` for a valid https URL) because the runtime has no `URL` global (reported: chainlink-agent-skills#86) | Replaced it with a regex |
+| Chainlink CRE | Monad is missing from the CRE skill's chain-selector tables, and its fallback mock forwarder is the wrong contract on Monad (reported: chainlink-agent-skills#85) | Took the selector and forwarders from the live directory |
 | Chainlink CRE | `--broadcast` bills the full gas limit on Monad; a guessed 800,000 limit cost 0.0816 MON for a ~120k operation | Sized every report from measured gas |
 | Chainlink CRE | Transient `unable to retrieve organization info` error suggests a broken account; a retry 20 s later worked | Documented |
-| Envio | `envio init` fails on pnpm 12 (`ERR_PNPM_IGNORED_BUILDS` for esbuild), leaving a half-initialised project | Allowed the build script in the project's own workspace file |
+| Envio | `envio init` fails on pnpm 12 (`ERR_PNPM_IGNORED_BUILDS` for esbuild), leaving a half-initialised project (already fixed upstream, hyperindex#1679) | Allowed the build script in the project's own workspace file |
 | Envio | A contract cannot start before its chain (`start block ... less than the chain start block`), raised at run time and not by `codegen` | Chain `start_block: 0` plus explicit per-contract starts, and two logical contracts on one address |
 | Envio | Resuming after a schema change silently loses entity data (queries return 0 rows) | `envio stop` then `envio dev`; a warning would prevent the confusion |
 | Envio | The public cloud endpoint has no `_aggregate` queries, unlike the local one | Count on the client |
-| Perpl | `getPerpetualInfo` returns an undocumented dynamic struct; testnet and mainnet market ids differ | Decode the words by hand; ids kept per network |
+| Perpl | `getPerpetualInfo` returns an undocumented dynamic struct; the api-docs README lists an outdated testnet collateral token (reported: api-docs#17) | Decode the words by hand; use the token the testnet API reports |
 | Nansen | Free tier is 100 credits then 10 a day, and the credit cost per endpoint is only in a response header | Cached everything with "as of" labels and a reserve read from the header |
 | Nansen | Smart Money perp data covers only Hyperliquid and the last 7 days, with no date parameter | Labelled on every panel; snapshots stored from Oct 5 |
 | Agora | The testnet AUSD faucet's 60 s limit is global, not per address, so a fork test reverted when anyone else had just used it | Warp the fork clock for the faucet call |
 | Monad / Cloudflare | Gas billed on the limit makes receipts hide real consumption; a Cloudflare cron on a Worker with `workers_dev = false` never fires, with no warning | Sized limits from estimates; set `workers_dev = true` |
 | Privy | A viem-only app pulls in a large WalletConnect tree: pnpm 12 refused the install scripts and `pnpm audit` found 4 transitive advisories | Reviewed the scripts, pinned the advisories with overrides |
+
+---
+
+## Upstream reports
+
+I filed what I could verify as a real problem, after checking the latest upstream version and searching for duplicates:
+
+| Where | Issue | What it is |
+|---|---|---|
+| Chainlink agent skills | [chainlink-agent-skills#85](https://github.com/smartcontractkit/chainlink-agent-skills/issues/85) | The CRE skill's chain table has no Monad rows, and its fallback mock forwarder is the wrong contract on Monad testnet |
+| Chainlink agent skills | [chainlink-agent-skills#86](https://github.com/smartcontractkit/chainlink-agent-skills/issues/86) | The skill lists `zod` as compatible, but `z.string().url()` fails in the workflow runtime because there is no `URL` global |
+| Perpl | [api-docs#17](https://github.com/PerplFoundation/api-docs/issues/17) | The README and `.env.example` list a testnet collateral token that the testnet API, perpl-docs and dex-sdk no longer use |
+
+Two things I hit were already reported and fixed upstream by the time I checked, so I did not file them: `envio init` failing on pnpm 12 ([hyperindex#1679](https://github.com/enviodev/hyperindex/issues/1679)). I left out the rest of my notes (for example the Envio start-block check, which is a deliberate "not supported yet" error) because they are not bugs.
 
 ---
 
