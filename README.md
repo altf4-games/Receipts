@@ -53,7 +53,36 @@ flowchart LR
 
 ## Try it
 
-Open https://receipts-app-rho-ashy.vercel.app, press **Sign in** (any email, Privy creates a built-in wallet) or connect MetaMask on Monad testnet, then go to `/me` and press **Get free test money** (0.25 test MON for gas and 200 test dollars; nothing costs real money). Open a receipt marked *Sealed* from the curator `pradyum`, subscribe for ten minutes and press **Sign and unlock**: you get the call and a green "matches sealed commit at block N", computed in your browser. `/call/36` is a bot call settled through the price tape (chart, flags, dispute window), `/rankers` has the open rankers and the Nansen table, and `/new` publishes your own call.
+Open https://receipts-app-rho-ashy.vercel.app, press **Sign in** (any email, Privy creates a built-in wallet) or connect MetaMask on Monad testnet, then go to `/me` and press **Get free test money** (0.25 test MON for gas and 200 test dollars; nothing costs real money). Open a receipt marked *Sealed* from the curator `pradyum`, subscribe for ten minutes and press **Sign and unlock**: you get the call and a green "matches sealed commit at block N", computed in your browser. `/call/36` is a bot call settled through the price tape (chart, flags, dispute window), `/rankers` has the open rankers and the Nansen table, `/stats` has live counts from the Envio index, and `/new` publishes your own call.
+
+---
+
+## Screenshots
+
+Taken from the deployed app on a phone-sized screen (real data, nothing staged).
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="assets/screenshots/home.jpg" alt="Home feed with leaderboard and latest receipts" width="240"><br><sub>The feed: a live leaderboard and receipts. Bots are labelled.</sub></td>
+    <td align="center" width="33%"><img src="assets/screenshots/receipt-tape.jpg" alt="A settled receipt with the price tape chart" width="240"><br><sub>A call settled from the on-chain price tape: samples, take profit, stop loss, horizon.</sub></td>
+    <td align="center" width="33%"><img src="assets/screenshots/unlock-sealed.jpg" alt="A sealed call with the unlock panel" width="240"><br><sub>A sealed call: hidden until the reveal, unlocked by subscribing by the second.</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="assets/screenshots/receipt-nansen.jpg" alt="Smart money at commit panel" width="240"><br><sub>Nansen Smart Money at the moment the call was sealed.</sub></td>
+    <td align="center"><img src="assets/screenshots/rankers-nansen.jpg" alt="Beats smart money ranking" width="240"><br><sub>The "beats smart money" ranking and the open rankers.</sub></td>
+    <td align="center"><img src="assets/screenshots/curator-nansen.jpg" alt="Curator page with Nansen intelligence" width="240"><br><sub>A curator page: alignment with smart money, and the honest empty wallet panel.</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="assets/screenshots/stats.jpg" alt="Stats page" width="240"><br><sub>/stats: live counts from the Envio index, checked against the chain.</sub></td>
+    <td></td><td></td>
+  </tr>
+</table>
+
+---
+
+## Who it is for
+
+Right now the users are me and four labelled bots. The people it is built for are small market-call curators: analysts and finfluencers who already post calls on X or Telegram and keep being asked to prove them. Receipts lets them attach a record nobody can edit to calls they already make, and charge by the second for early access instead of selling a flat monthly subscription. Subscribers are people who already pay for market calls and want proof before they pay. Every receipt has a share image generated from chain data, so each curator's calls advertise the product, and the open rankers give curators something to compete on. I have no paying users: this runs on testnet with test money, so the honest claim is that the mechanism works and getting started takes a few minutes.
 
 ---
 
@@ -177,6 +206,39 @@ The honest gap: I use Privy for sign-in and the embedded wallet only. I did not 
 | Coexistence with extension wallets | Signing in or out resets each page's connection so the two wallet types never mix |
 
 ---
+## Bounty evidence
+
+What each bounty asks for (from the official text on the portal), where this repository meets it, and how to check it.
+
+### Nansen: Best use of Nansen
+
+| Requirement | Where | Verify |
+|---|---|---|
+| Integrate at least one Nansen endpoint, MCP tool or CLI | Three REST endpoints: Smart Money perp trades, Profiler related wallets, Profiler PnL summary (`app/lib/nansen.ts`). I did not use MCP or the CLI | Table in "Nansen in detail"; `grep -n "api/v1" app/lib/nansen.ts` |
+| Part of a core feature, not a data display | On every revealed call: did the curator go with or against smart money when sealing it. It also drives a ranking ("beats smart money") and the same-operator flag on curator pages (`rankers/src/smartMoney.ts`, `clusters.ts`) | Open `/call/19` (LONG against a SHORT lean, won), `/rankers`, `/c/pradyum`; screenshots above |
+| Working product with live data | Real Nansen responses stored in Redis with a fetch time, refreshed daily; the snapshot holds the trailing 7 days of Smart Money positions for BTC, ETH and SOL (141 when first filled on Oct 5) | Every panel shows "as of ..."; `/api/nansen/refresh` is the cron that fills it |
+| Clear explanation of endpoints, data categories and tools | "Nansen in detail" lists each endpoint, what it is used for and its credit cost; the limits (Hyperliquid only, 7 days, no testnet) are stated | README sections above |
+| Public repo or docs | This repository; friction notes in `docs/partner-feedback/nansen.md` | |
+
+### Chainlink: Best workflow with CRE
+
+| Requirement | Where | Verify |
+|---|---|---|
+| Blockchain plus an external API | The workflow reads the call registry, the tape and Perpl's oracle with EVM reads and calls Perpl's REST market-data API (`cre/tape-and-settle/main.ts`) | The run log shows the REST fetch and the cross-check against the oracle |
+| A successful simulation through the CRE CLI | `cre workflow simulate tape-and-settle --target production-settings --broadcast` proposed the settlement of call #55 on production (tx `0x23f21fe5152ea8d9a81f17f276ee930bf25d32954f8eea7c16df42ed52e7475c`); a live test does the same end to end on a staging copy | `cast call 0xBdCF5A34a13617f62FFB9d3155dF3fA2939e73Dc 'proposals(uint256)(uint64,uint32,int32,bool,bool,bool)' 55`; `cd live-tests && DEPLOY_NAME=staging-v2 pnpm exec vitest run test/tape.live.test.ts` |
+| CRE used meaningfully as an orchestration layer | A cron trigger, batched EVM reads, an HTTP call and `writeReport` to two receivers; the contracts verify everything the workflow sends | `cre/tape-and-settle/main.ts` (glue) and `logic.ts` (pure decisions, 12 bun tests) |
+
+### Envio: Best use of Envio
+
+| Requirement | Where | Verify |
+|---|---|---|
+| The indexer drives a feature | The feed, leaderboard, curator pages, rankers page and `/stats` all read it; the app falls back to the chain only if the indexer is down | The pages show "Indexed by Envio ... indexed to block N" |
+| Depth: multichain, non-trivial schema, derived entities | Monad testnet and mainnet; 17 entities; derived stats (equity curve, max drawdown, the sums a ranker needs), per-market stats, revenue, and Perpl's own account and position events to flag a curator trading while their call is open | `indexer/config.yaml`, `indexer/schema.graphql`, `indexer/src/handlers/` |
+| Deployed on Envio Cloud, live and correct | `https://indexer.dev.hyperindex.xyz/da57fdb/v1/graphql`; a live test pins one block and compares every call, curator stat, market stat and revenue row with a recomputation from the chain | `cd live-tests && ENVIO_GRAPHQL=https://indexer.dev.hyperindex.xyz/da57fdb/v1/graphql DEPLOY_NAME=production pnpm exec vitest run test/indexer.live.test.ts` |
+| Craft: readable code, a repo someone else can pick up | The indexer is its own project with its own README, 18 tests, and a setup guide | `indexer/README.md`; `cd indexer && pnpm test` (Node 22) |
+
+---
+
 ## Live on testnet (Monad, chain 10143)
 
 | Contract | Address | Verified |
@@ -268,6 +330,23 @@ I use the REST API directly. I did not use the Nansen CLI or MCP tools in the pr
 The bots and the keeper must run unattended, because an unrevealed call scores −30% and a revealed call needs someone to settle it. They run as one stateless tick (`bots/scripts/run-once.ts`): a GitHub Actions job is the primary runner, and the same tick runs on two Cloudflare Workers (cron, free plan) as a backup. GitHub's own `schedule` trigger never fired for a brand-new workflow (over two hours), so a third tiny Worker, `bots/src/dispatch.ts`, starts the Actions job every 5 minutes with one authenticated API call (about 1 ms of CPU). Ticks are idempotent, so racing runners is harmless.
 
 **The Cloudflare Free plan failed me twice.** On Oct 4 (about 2 h) and on Oct 6 from 08:10 to 12:55 IST both Workers returned `exceededResources` and then `scriptThrewException` until they recovered. Cloudflare's own analytics showed why: each run used 40 to 60 ms of CPU against the Free plan's 10 ms limit, which is tolerated until it is not. The second outage cost five bot calls (#48 to #52) that were never revealed and expired at −30%, permanently, because the registry is frozen. That is the penalty working as designed, and it is also visible in the bots' stats. I moved the primary runner to GitHub Actions the same day. The record is in `.github/workflows/keeper.yml`.
+
+---
+
+## Measured on testnet
+
+Numbers from my own runs (one machine, public RPC), not benchmarks.
+
+| What | Measured |
+|---|---|
+| A commit seals (Proposed, Voted, Finalized stages shown on `/new`) | about 0.1 s, 0.4 s and 0.7 s in one browser run |
+| "Get free test money": two transactions confirmed by the server | 3.8 s and 5.1 s (two runs) |
+| Subscribe, signed unlock, hash check, plus tamper and replay checks | 3.6 s in the live delivery test |
+| Receipt page, warm | 0.4 to 0.5 s |
+| A CRE workflow run (compile and simulate) | about 4 s |
+| After a horizon ends: first sample and proposal | about 1.5 minutes (call #31: horizon 21:56 IST, proposed 21:57 IST) |
+| Proposal to settled | 15 minute dispute window, then the next keeper tick; call #31 was finalized about 16 minutes after its horizon |
+| Price tape | one oracle sample about every 15 minutes per market while a call is open; 313 samples recorded so far |
 
 ---
 
