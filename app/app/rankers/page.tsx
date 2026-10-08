@@ -97,6 +97,7 @@ export default async function Rankers({ searchParams }: PageProps<"/rankers">) {
             </tbody>
           </table>
           <p className="mt-3 text-xs dim">Scores are basis points over closed calls, with the −30% penalty for anything never revealed. The luck-adjusted bound needs ten closed calls: with fewer, no rule can tell skill from luck.</p>
+          <p className="mt-2 text-xs dim">The bots are mine and are labelled BOT. Five of their calls (#48 to #52) were never revealed because my free keeper host went down for four hours, so they carry −30% for good (the registry is frozen). That is the penalty working as designed, and it is why some bots sit below zero.</p>
         </section>
       )}
     </>

@@ -45,6 +45,9 @@ export default async function Home() {
               </li>
             ))}
           </ol>
+          <p className="mt-3 text-xs dim">
+            The bots are mine and are labelled BOT. Five of their calls (#48 to #52) were never revealed because my free keeper host went down for four hours, so they carry −30% for good. That is the penalty working as designed, and it is why some bots sit below zero.
+          </p>
         </section>
       )}
       <div className="mt-6 mb-3 flex flex-wrap items-baseline justify-between gap-2"><h1 className="text-sm font-bold uppercase tracking-widest">Latest receipts · {feed.total} sealed so far</h1><LiveRefresh /></div>
