@@ -35,7 +35,7 @@ export const AUSD_FAUCET = "0xd236c18D274E54FAccC3dd9DDA4b27965a73ee6C" as const
 export const MON_FAUCET_URL = "https://faucet.monad.xyz";
 
 /** Public Envio Cloud endpoint (HyperIndex, Monad testnet + mainnet). Everything in it is public on-chain data. */
-export const ENVIO_GRAPHQL = process.env.ENVIO_GRAPHQL ?? "https://indexer.dev.hyperindex.xyz/da57fdb/v1/graphql";
+export const ENVIO_GRAPHQL = process.env.ENVIO_GRAPHQL ?? "https://indexer.dev.hyperindex.xyz/851d538/v1/graphql";
 export const RANKER_REGISTRY = "0xc1936e5Ce100B7801fffBe99339F1757A3049581" as const;
 
 /** Phase 4 stack (production). Receipt pages read the tape and proposals from here; staging (v1) has none. */

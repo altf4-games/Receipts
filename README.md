@@ -234,7 +234,7 @@ What each bounty asks for (from the official text on the portal), where this rep
 |---|---|---|
 | The indexer drives a feature | The feed, leaderboard, curator pages, rankers page and `/stats` all read it; the app falls back to the chain only if the indexer is down | The pages show "Indexed by Envio ... indexed to block N" |
 | Depth: multichain, non-trivial schema, derived entities | Monad testnet and mainnet; 17 entities; derived stats (equity curve, max drawdown, the sums a ranker needs), per-market stats, revenue, and Perpl's own account and position events to flag a curator trading while their call is open | `indexer/config.yaml`, `indexer/schema.graphql`, `indexer/src/handlers/` |
-| Deployed on Envio Cloud, live and correct | `https://indexer.dev.hyperindex.xyz/da57fdb/v1/graphql`; a live test pins one block and compares every call, curator stat, market stat and revenue row with a recomputation from the chain | `cd live-tests && ENVIO_GRAPHQL=https://indexer.dev.hyperindex.xyz/da57fdb/v1/graphql DEPLOY_NAME=production pnpm exec vitest run test/indexer.live.test.ts` |
+| Deployed on Envio Cloud, live and correct | `https://indexer.dev.hyperindex.xyz/851d538/v1/graphql`; a live test pins one block and compares every call, curator stat, market stat and revenue row with a recomputation from the chain | `cd live-tests && ENVIO_GRAPHQL=https://indexer.dev.hyperindex.xyz/da57fdb/v1/graphql DEPLOY_NAME=production pnpm exec vitest run test/indexer.live.test.ts` |
 | Craft: readable code, a repo someone else can pick up | The indexer is its own project with its own README, 18 tests, and a setup guide | `indexer/README.md`; `cd indexer && pnpm test` (Node 22) |
 
 ---
