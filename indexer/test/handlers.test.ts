@@ -152,7 +152,7 @@ describe("Perpl analytics (multichain)", () => {
     await indexer.process({
       chains: {
         10143: { simulate: [opened(B + 200, 0, 100_000n, 860_000n)] },
-        143: { simulate: [{ ...opened(B + 300, 1, 2_000n, 120_500n), params: { perpId: 31n, accountId: 5n, positionType: 1, leverageHdths: 1000n, depositCNS: 1n, pnlCollateralizedCNS: 0n, pricePNS: 120_500n, lotLNS: 2_000n, insFeeCNS: 0n, protFeeCNS: 0n, priceResiduePNSQ16: 0n } }] },
+        143: { simulate: [{ ...opened(110_800_000, 1, 2_000n, 120_500n), params: { perpId: 31n, accountId: 5n, positionType: 1, leverageHdths: 1000n, depositCNS: 1n, pnlCollateralizedCNS: 0n, pricePNS: 120_500n, lotLNS: 2_000n, insFeeCNS: 0n, protFeeCNS: 0n, priceResiduePNSQ16: 0n } }] },
       },
     });
     const testnet = await indexer.PerplMarketDay.getWhere({ chainId: { _eq: 10143 } });

@@ -296,7 +296,7 @@ Honest limits:
 
 ## Envio in detail: the indexer and the open rankers
 
-`indexer/` is an Envio HyperIndex project covering the Receipts contracts on Monad testnet and Perpl's Exchange on testnet and mainnet. It derives per-curator scoreboards (equity curve, max drawdown, sums for confidence bounds), per-market stats, subscription revenue and daily Perpl analytics, and it flags a curator's own Perpl positions opened while a call was open. I check it against the chain with a live test that pins one block, waits for the indexer to reach it and compares every row (see `indexer/README.md`).
+`indexer/` is an Envio HyperIndex project covering the Receipts contracts on Monad testnet and Perpl's Exchange on testnet and mainnet (mainnet is a bounded one-day window, Oct 6 to Oct 7, because the free Envio plan limits an indexer to about 100k stored events and live mainnet opens would need about 17k a day; the config supports live indexing). It derives per-curator scoreboards (equity curve, max drawdown, sums for confidence bounds), per-market stats, subscription revenue and daily Perpl analytics, and it flags a curator's own Perpl positions opened while a call was open. I check it against the chain with a live test that pins one block, waits for the indexer to reach it and compares every row (see `indexer/README.md`).
 
 `rankers/` holds the ranking algorithms as pure functions (`raw`, `mean-per-call`, `luck-adjusted`, `hit-rate-wilson`). A ranker is registered on chain with its code location and git commit, so anyone can rerun the exact code. The README there reports a coin-flip simulation, including the case where the luck-adjusted rule does *not* beat plain summing.
 

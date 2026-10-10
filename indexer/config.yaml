@@ -91,8 +91,12 @@ chains:
         start_block: 68120309
   # Monad mainnet: Perpl's real Exchange (no Receipts contracts there yet: the mainnet Aurora flow is a stretch goal).
   # Market-level analytics only (no Receipts curators exist on mainnet, so no account linking is needed here).
+  # A bounded window: Perpl mainnet opens about 17k positions a day, which pushed the free Development plan over its
+  # 100k event limit by Oct 9 (106,367 mainnet events in 6 days), so mainnet stops one day (216,000 blocks at 0.4 s)
+  # after the original start block. Remove end_block on a paid plan to index it live again.
   - id: 143
-    start_block: latest
+    start_block: 110750358
+    end_block: 110966358
     contracts:
       - name: PerplTrades
         address: "0x34B6552d57a35a1D042CcAe1951BD1C370112a6F"
